@@ -54,7 +54,7 @@ class SolaredgeForecast(object):
             average_production[i] = (df.loc[df['month'] == i, 'energy'].mean() / number_of_days[i - 1])
 
         # Get total energy production from start date till now
-        energy_produced = round(data.get_time_frame_energy(site_id=self.account_key,
+        energy_produced = round(data.get_time_frame_energy(site_id=self.site_id,
                                                            start_date=self.startdate,
                                                            end_date=self.enddate,
                                                            time_unit="YEAR")
