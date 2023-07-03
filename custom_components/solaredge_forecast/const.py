@@ -75,6 +75,14 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
     ),
     SolaredgeForecastSensorEntityDescription(
+        key="solaredge_progress",
+        name="Solar energy progress",
+        icon="mdi:solar-power",
+        native_unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL,
+    ),
+    SolaredgeForecastSensorEntityDescription(
         key="startdate",
         name="Start date forecast period",
         icon="mdi:calendar",
