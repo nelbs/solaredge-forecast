@@ -23,6 +23,7 @@ class SolaredgeForecast(object):
         """Calculate solar energy forecast."""
 
         now = datetime.now()
+        yesterday = now.date() - timedelta(days=1)
         today = now.date()
         tomorrow = now.date() + timedelta(days=1)
 
@@ -32,7 +33,7 @@ class SolaredgeForecast(object):
         # Get date when production started
         start_production = data.get_data_period(site_id=self.site_id)["dataPeriod"]["startDate"]
 
-        # Get energy production per month from production start till now and store in dataframe
+        # Get energy production per month from production start until now and store in dataframe
         energy_month_average = data.get_energy(site_id=self.site_id,
                                                start_date=start_production,
                                                end_date=self.enddate,
@@ -68,32 +69,31 @@ class SolaredgeForecast(object):
         # interpolate between the 15th day of each month
         daily = daily.interpolate(limit_direction='both')
 
-        # Estimate energy from today till end of give period
+        # Estimate energy from today until end of give period
         energy_estimated_from_tomorrow = daily.loc[tomorrow:self.enddate]['energy'].sum()
-        # Estimate energy from startdate till today
-        energy_estimated_till_today = daily.loc[self.startdate:today]['energy'].sum()
-        # Calculated produced energy from start till today
-        energy_production_till_today = data.get_time_frame_energy(site_id=self.site_id,
+        # Estimate energy from startdate until yesterday
+        energy_estimated_until_yesterday = daily.loc[self.startdate:yesterday]['energy'].sum()
+        # Calculated produced energy from start until today
+        energy_production_until_now = data.get_time_frame_energy(site_id=self.site_id,
                                                                 start_date=self.startdate,
                                                                 end_date=self.enddate,
                                                                 time_unit="YEAR")['timeFrameEnergy']['energy'] / 1000
-        # calculate the progress of the currently produced energy in relation to the forecast
-        energy_production_progress = energy_estimated_till_today - energy_production_till_today
         # Get produced energy today
         energy_produced_today = data.get_time_frame_energy(site_id=self.site_id,
                                                            start_date=now.date(),
                                                            end_date=tomorrow,
                                                            time_unit="day")['timeFrameEnergy']['energy'] / 1000
-
+        # calculate the progress of the currently produced energy in relation to the forecast
+        energy_production_progress = energy_production_until_now - energy_produced_today - energy_estimated_until_yesterday
         # Calculate the expected energy for the rest of the period
         energy_estimated_today = max(0, daily.loc[today:today]['energy'].sum() - energy_produced_today)
         energy_estimated_period = energy_estimated_today + energy_estimated_from_tomorrow
 
         # Calculate the total
-        forecast = energy_estimated_period + energy_production_till_today
+        forecast = energy_estimated_period + energy_production_until_now
 
         data = {}
-        data["Solar energy produced"] = round(energy_production_till_today)
+        data["Solar energy produced"] = round(energy_production_until_now)
         data["Solar energy estimated"] = round(energy_estimated_period)
         data["Solar energy forecast"] = round(forecast)
         data["Solar energy progress"] = round(energy_production_progress)
