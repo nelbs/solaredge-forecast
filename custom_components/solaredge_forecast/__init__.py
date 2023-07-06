@@ -55,7 +55,7 @@ class SolaredgeForecastData(update_coordinator.DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the data object."""
         super().__init__(
-            hass, _LOGGER, name="Solaredge Forecast", update_interval=timedelta(seconds=3600)
+            hass, _LOGGER, name="Solaredge Forecast", update_interval=timedelta(seconds=900)
         )
 
         """Populate default options."""
