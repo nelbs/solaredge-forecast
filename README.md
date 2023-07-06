@@ -1,9 +1,7 @@
 # Solaredge Forecast integration
 
-Solaredge Forecast integration for Home Assistant uses the python package "SolarEdge" https://pypi.org/project/solaredge/
-
-The Solaredge Forecast integration will collect monthly averaged solar product from the start of the production of the site.
-It will forecast the total produced energy in kWh for a period of time (max 1 year).
+Home assistant component that forecasts the total solar energy generation for a specified time period. 
+The integration utilizes the Python library "SolarEdge." https://pypi.org/project/solaredge/
 
 ## How to install
 
