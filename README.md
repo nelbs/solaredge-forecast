@@ -7,7 +7,7 @@ Home assistant component that forecasts the total solar energy generation for a 
 1. Make sure yo have [hacs](https://hacs.xyz/) installed
 2. Add this repository as custom repository to hacs by going to hacs, integrations, click on the three dots in the upper right corner and click on custom repositories.
 3. In the repository field, fill in the link to this repository (https://github.com/nelbs/solaredge-forcast) and for category, select `Integration`. Click on `Add`
-4. Go back to hacs, integrations and add click on the blue button `Exlore and download repositories` in the bottom left corner, search for `Solaredge-Forecast` and install it 
+4. Go back to hacs, integrations and add click on the blue button `Exlore and download repositories` in the bottom left corner, search for `Solaredge Forecast` and install it 
 5. Reboot HA
 6. In HA goto Config -> Integrations. Add the Solaredge-Forecast integration to HA.
 7. In your lovelace dashboard, add a card with the Solaredge-Forecast entities.
