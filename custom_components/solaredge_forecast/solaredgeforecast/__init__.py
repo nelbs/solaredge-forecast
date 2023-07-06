@@ -21,7 +21,6 @@ class SolaredgeForecast(object):
 
     def get_solar_forecast(self):
         """Calculate solar energy forecast."""
-
         now = datetime.now()
         yesterday = now.date() - timedelta(days=1)
         today = now.date()
