@@ -1,16 +1,13 @@
 # Solaredge Forecast integration
 
-Solaredge Forecast integration for Home Assistant uses the python package "SolarEdge" https://pypi.org/project/solaredge/
-
-The Solaredge Forecast integration will collect monthly averaged solar product from the start of the production of the site.
-It will forecast the total produced energy in kWh for a period of time (max 1 year).
+Home assistant component that forecasts the total solar energy generation for a specified time period by using the [solaredge library](https://pypi.org/project/solaredge/)
 
 ## How to install
 
-1. Make sure you have [hacs](https://hacs.xyz/) installed
+1. Make sure yo have [hacs](https://hacs.xyz/) installed
 2. Add this repository as custom repository to hacs by going to hacs, integrations, click on the three dots in the upper right corner and click on custom repositories.
 3. In the repository field, fill in the link to this repository (https://github.com/nelbs/solaredge-forcast) and for category, select `Integration`. Click on `Add`
-4. Go back to hacs, integrations and add click on the blue button `Exlore and download repositories` in the bottom left corner, search for `Solaredge-Forecast` and install it 
+4. Go back to hacs, integrations and add click on the blue button `Exlore and download repositories` in the bottom left corner, search for `Solaredge Forecast` and install it 
 5. Reboot HA
 6. In HA goto Config -> Integrations. Add the Solaredge-Forecast integration to HA.
 7. In your lovelace dashboard, add a card with the Solaredge-Forecast entities.
