@@ -69,10 +69,6 @@ class SolaredgeForecast(object):
         # interpolate between the 15th day of each month
         daily = daily.interpolate(limit_direction='both')
 
-        # Estimate energy from today until end of give period
-        energy_estimated_from_tomorrow = daily.loc[tomorrow:self.enddate]['energy'].sum()
-        # Estimate energy from startdate until yesterday
-        energy_estimated_until_yesterday = daily.loc[self.startdate:yesterday]['energy'].sum()
         # Calculated produced energy from start until today
         energy_production_until_now = data.get_time_frame_energy(site_id=self.site_id,
                                                                 start_date=self.startdate,
@@ -83,13 +79,19 @@ class SolaredgeForecast(object):
                                                            start_date=now.date(),
                                                            end_date=tomorrow,
                                                            time_unit="day")['timeFrameEnergy']['energy'] / 1000
-        # calculate the progress of the currently produced energy in relation to the forecast
-        energy_production_progress = energy_production_until_now - energy_produced_today - energy_estimated_until_yesterday
-        # Calculate the expected energy for the rest of the period
+        energy_estimated_until_yesterday = daily.loc[self.startdate:yesterday]['energy'].sum()
         energy_estimated_today = max(0, daily.loc[today:today]['energy'].sum() - energy_produced_today)
+        energy_estimated_from_tomorrow = daily.loc[tomorrow:self.enddate]['energy'].sum()
         energy_estimated_period = energy_estimated_today + energy_estimated_from_tomorrow
 
-        # Calculate the total
+        energy_produced_until_yesterday = energy_production_until_now - energy_produced_today
+        energy_produced_today_extra = max(0, energy_produced_today - energy_estimated_today)
+
+        # calculate the progress of the currently produced energy in relation to the forecast. A positive value means
+        # that the produced energy is ahead of forecast, a negative value means that it is behibd forecast
+        energy_production_progress = energy_produced_until_yesterday - energy_estimated_until_yesterday\
+                                     + energy_produced_today_extra
+        # Calculate the total estimated energy production
         forecast = energy_estimated_period + energy_production_until_now
 
         data = {}
