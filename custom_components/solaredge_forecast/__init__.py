@@ -16,12 +16,14 @@ from .const import (
     CONF_STARTMONTH,
     CONF_ENDDAY,
     CONF_ENDMONTH,
+    CONF_STARTDATE_PRODUCTION,
     DEFAULT_ACCOUNT_KEY,
     DEFAULT_SITE_ID,
     DEFAULT_STARTDAY,
     DEFAULT_STARTMONTH,
     DEFAULT_ENDDAY,
     DEFAULT_ENDMONTH,
+    DEFAULT_STARTDATE_PRODUCTION,
     DOMAIN
 )
 
@@ -68,6 +70,7 @@ class SolaredgeForecastData(update_coordinator.DataUpdateCoordinator):
                 CONF_STARTMONTH: data.pop(CONF_STARTMONTH, DEFAULT_STARTMONTH),
                 CONF_ENDDAY: data.pop(CONF_ENDDAY, DEFAULT_ENDDAY),
                 CONF_ENDMONTH: data.pop(CONF_ENDMONTH, DEFAULT_ENDMONTH),
+                CONF_STARTDATE_PRODUCTION: data.pop(CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION),
             }
 
             self.hass.config_entries.async_update_entry(
@@ -82,6 +85,8 @@ class SolaredgeForecastData(update_coordinator.DataUpdateCoordinator):
         self.start_month = entry.options[CONF_STARTMONTH]
         self.end_day = entry.options[CONF_ENDDAY]
         self.end_month = entry.options[CONF_ENDMONTH]
+        self.start_date_production = entry.options[CONF_STARTDATE_PRODUCTION]\
+            .replace("/","").replace("-", "").replace(" ", "")
         self.unique_id = entry.entry_id
         self.name = entry.title
 
@@ -122,6 +127,7 @@ class SolaredgeForecastData(update_coordinator.DataUpdateCoordinator):
                 SolaredgeForecast,
                 self.startdate,
                 self.enddate,
+                self.start_date_production,
                 self.site_id,
                 self.account_key
             )

@@ -6,11 +6,18 @@ import pandas as pd
 
 class SolaredgeForecast(object):
     """Solaredge forecast data"""
-    def __init__(self, startdate, enddate, site_id, account_key):
+    def __init__(self, startdate, enddate, startdate_production, site_id, account_key):
         self.startdate = datetime.strptime(startdate, '%Y%m%d').date()
         self.enddate = datetime.strptime(enddate, '%Y%m%d').date()
         self.site_id = site_id
         self.account_key = account_key
+        if startdate_production:
+            date = (datetime.strptime(startdate_production, '%d%m%Y'))
+            if date.day > 1:
+                date += relativedelta(months=1, day=1)
+            self.startdate_production = date.date()
+        else:
+            self.startdate_production = startdate_production
 
         data = self.get_solar_forecast()
 
@@ -31,11 +38,14 @@ class SolaredgeForecast(object):
         data = solaredge.Solaredge(self.account_key)
 
         # Get date when production started
-        start_production = data.get_data_period(site_id=self.site_id)["dataPeriod"]["startDate"]
+        if not self.startdate_production:
+            start_production = data.get_data_period(site_id=self.site_id)["dataPeriod"]["startDate"]
+            self.startdate_production = (datetime.strptime(start_production, "%Y-%m-%d")
+                                         + relativedelta(months=1, day=1)).date()
 
         # Get energy production per month from production start until now and store in dataframe
         energy_month_average = data.get_energy(site_id=self.site_id,
-                                               start_date=start_production,
+                                               start_date=self.startdate_production,
                                                end_date=last_month,
                                                time_unit="MONTH")
         # create dataframe with values per month
@@ -89,7 +99,7 @@ class SolaredgeForecast(object):
         energy_produced_today_extra = max(0, energy_produced_today - energy_estimated_today)
 
         # calculate the progress of the currently produced energy in relation to the forecast. A positive value means
-        # that the produced energy is ahead of forecast, a negative value means that it is behibd forecast
+        # that the produced energy is ahead of forecast, a negative value means that it is behind forecast
         energy_production_progress = energy_produced_until_yesterday - energy_estimated_until_yesterday\
                                      + energy_produced_today_extra
 

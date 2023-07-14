@@ -15,12 +15,14 @@ from .const import (
     CONF_STARTMONTH,
     CONF_ENDDAY,
     CONF_ENDMONTH,
+    CONF_STARTDATE_PRODUCTION,
     DEFAULT_ACCOUNT_KEY,
     DEFAULT_SITE_ID,
     DEFAULT_STARTDAY,
     DEFAULT_STARTMONTH,
     DEFAULT_ENDDAY,
     DEFAULT_ENDMONTH,
+    DEFAULT_STARTDATE_PRODUCTION,
     DOMAIN,
     MONTHS,
 )
@@ -54,6 +56,8 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._errors[CONF_STARTDAY] = "invalid_startday"
             elif not await self._date_validation(user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH]):
                 self._errors[CONF_ENDDAY] = "invalid_endday"
+            elif not await self._startdate_validation(user_input[CONF_STARTDATE_PRODUCTION]):
+                self._errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
             elif not await self._period_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH],
                                                    user_input[CONF_ENDDAY],user_input[CONF_ENDMONTH]):
                 self._errors[CONF_ENDMONTH] = "invalid_period"
@@ -74,6 +78,7 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input[CONF_STARTMONTH] = DEFAULT_STARTMONTH
         user_input[CONF_ENDDAY] = DEFAULT_ENDDAY
         user_input[CONF_ENDMONTH] = DEFAULT_ENDMONTH
+        user_input[CONF_STARTDATE_PRODUCTION] = DEFAULT_STARTDATE_PRODUCTION
 
         return await self._show_config_form(user_input)
 
@@ -106,6 +111,9 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_ENDMONTH, default=user_input.get(CONF_ENDMONTH, DEFAULT_ENDMONTH)
                     ): vol.In(MONTHS),
+                    vol.Optional(
+                        CONF_STARTDATE_PRODUCTION, default=user_input.get(CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION)
+                    ): cv.string,
                 }
             ),
             errors=self._errors,
@@ -117,6 +125,18 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             datetime.datetime.strptime(
                 str(datetime.datetime.now().year) + month + str(day), "%Y%B%d"
             )
+            return True
+        except ValueError:
+            return False
+
+    async def _startdate_validation(self, date) -> bool:
+        """Return True if date is a correct date."""
+        if date == "":
+            return True
+        try:
+            if (datetime.datetime.today() - datetime.datetime.strptime(date.replace("/","").replace("-", "")
+                                                           .replace(" ", ""), "%d%m%Y")).days < 365:
+                return False
             return True
         except ValueError:
             return False
@@ -167,6 +187,8 @@ class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
                 self._errors[CONF_STARTDAY] = "invalid_startday"
             elif not await self._date_validation(user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH]):
                 self._errors[CONF_ENDDAY] = "invalid_endday"
+            elif not await self._startdate_validation(user_input[CONF_STARTDATE_PRODUCTION]):
+                self._errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
             elif not await self._period_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH],
                                                    user_input[CONF_ENDDAY],user_input[CONF_ENDMONTH]):
                 self._errors[CONF_ENDMONTH] = "invalid_period"
@@ -194,6 +216,10 @@ class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_ENDMONTH, default=self.options.get(CONF_ENDMONTH, DEFAULT_ENDMONTH)
                     ): vol.In(MONTHS),
+                    vol.Optional(
+                        CONF_STARTDATE_PRODUCTION, default=self.options.get(CONF_STARTDATE_PRODUCTION,
+                                                                            DEFAULT_STARTDATE_PRODUCTION)
+                    ): cv.string,
                 }
             ),
             errors=self._errors,
@@ -222,6 +248,19 @@ class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
             return True
         except ValueError:
             return False
+
+    async def _startdate_validation(self, date) -> bool:
+        """Return True if date is a correct date."""
+        if date == "":
+            return True
+        try:
+            if (datetime.datetime.today() - datetime.datetime.strptime(date.replace("/","").replace("-", "")
+                                                           .replace(" ", ""), "%d%m%Y")).days < 365:
+                return False
+            return True
+        except ValueError:
+            return False
+
 
     async def _period_validation(self, startday, startmonth, endday, endmonth) -> bool:
         """Return True if today is within time period."""

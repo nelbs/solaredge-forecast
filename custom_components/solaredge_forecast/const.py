@@ -21,6 +21,7 @@ CONF_STARTDAY = "startday"
 CONF_STARTMONTH = "startmonth"
 CONF_ENDDAY = "endday"
 CONF_ENDMONTH = "endmonth"
+CONF_STARTDATE_PRODUCTION = "startdate production"
 
 DEFAULT_ACCOUNT_KEY = ""
 DEFAULT_SITE_ID = ""
@@ -28,6 +29,7 @@ DEFAULT_STARTDAY = "01"
 DEFAULT_STARTMONTH = "January"
 DEFAULT_ENDDAY = "31"
 DEFAULT_ENDMONTH = "December"
+DEFAULT_STARTDATE_PRODUCTION = ""
 
 MONTHS = [
     "January",
@@ -93,6 +95,14 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
     SolaredgeForecastSensorEntityDescription(
         key="enddate",
         name="End date forecast period",
+        icon="mdi:calendar",
+        native_unit_of_measurement=None,
+        device_class=SensorDeviceClass.DATE,
+        state_class=None,
+    ),
+    SolaredgeForecastSensorEntityDescription(
+        key="startdate_production",
+        name="Start date energy production",
         icon="mdi:calendar",
         native_unit_of_measurement=None,
         device_class=SensorDeviceClass.DATE,

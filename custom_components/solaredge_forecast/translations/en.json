@@ -9,7 +9,8 @@
           "startday": "Startday of the forecast period",
           "startmonth": "Startmonth of the forecast period",
           "endday": "Endday of the forecast period",
-          "endmonth": "Endmonth of the forecast period"
+          "endmonth": "Endmonth of the forecast period",
+          "startdate production": "OPTIONAL: Date of start solar energy production %d%m%Y"
         }
       }
     },
@@ -17,13 +18,15 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
-      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period."
+      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
-      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period."
+      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     }
   },
   "options": {
@@ -36,7 +39,8 @@
           "startday": "Startday of the forecast period",
           "startmonth": "Startmonth of the forecast period",
           "endday": "Endday of the forecast period",
-          "endmonth": "Endmonth of the forecast period"
+          "endmonth": "Endmonth of the forecast period",
+          "startdate production": "OPTIONAL: Date of start solar energy production %d%m%Y"
         }
       }
     },
@@ -44,13 +48,15 @@
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
-      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period."
+      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
-      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period."
+      "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     }
   }
 }
