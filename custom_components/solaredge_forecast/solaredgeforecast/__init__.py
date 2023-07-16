@@ -82,7 +82,6 @@ class SolaredgeForecast(object):
         energy_estimated_from_tomorrow = daily.loc[tomorrow:self.enddate]['energy'].sum()
         energy_estimated_until_yesterday = daily.loc[self.startdate:yesterday]['energy'].sum()
         energy_estimated_today = daily.loc[today:today]['energy'].sum()
-        energy_estimated_period = energy_estimated_today + energy_estimated_from_tomorrow
 
         # Calculated produced energy from start until today
         energy_production_until_now = data.get_time_frame_energy(site_id=self.site_id,
@@ -95,13 +94,15 @@ class SolaredgeForecast(object):
                                                            end_date=tomorrow,
                                                            time_unit="day")['timeFrameEnergy']['energy'] / 1000
 
+        energy_estimated_period = energy_estimated_from_tomorrow\
+                                  + max(0, energy_estimated_today - energy_produced_today)
+
         energy_produced_until_yesterday = energy_production_until_now - energy_produced_today
-        energy_produced_today_extra = max(0, energy_produced_today - energy_estimated_today)
 
         # calculate the progress of the currently produced energy in relation to the forecast. A positive value means
         # that the produced energy is ahead of forecast, a negative value means that it is behind forecast
         energy_production_progress = energy_produced_until_yesterday - energy_estimated_until_yesterday\
-                                     + energy_produced_today_extra
+                                     +  max(0, energy_produced_today - energy_estimated_today)
 
         # Calculate the total estimated energy production
         forecast = energy_estimated_period + energy_production_until_now
