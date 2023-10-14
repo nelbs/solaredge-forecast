@@ -143,16 +143,24 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _period_validation(self, startday, startmonth, endday, endmonth) -> bool:
         """Return True if today is within time period."""
+        today = datetime.datetime.today()
         startdate = datetime.datetime.strptime(str(datetime.datetime.now().year) + startmonth + str(startday), "%Y%B%d")
         enddate = datetime.datetime.strptime(str(datetime.datetime.now().year) + endmonth + str(endday), "%Y%B%d")
-        today = datetime.datetime.today()
-        if startdate < enddate:
-            if startdate < today < enddate:
-                return True
+
+        if startdate < enddate < today:
+            return False
+        if enddate < startdate < today:
+            return True
+        if startdate < today < enddate:
+            return True
+        if enddate < today < startdate:
+            return False
+        if today < startdate < enddate:
+            return False
+        if today < enddate < startdate:
+            return True
         else:
-            if startdate > today > enddate:
-                return True
-        return False
+            return False
 
     async def _installation_id_in_configuration_exists(self, hass, installation_id_entry) -> bool:
         """Return True if installation id exists in configuration."""
@@ -264,13 +272,21 @@ class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def _period_validation(self, startday, startmonth, endday, endmonth) -> bool:
         """Return True if today is within time period."""
+        today = datetime.datetime.today()
         startdate = datetime.datetime.strptime(str(datetime.datetime.now().year) + startmonth + str(startday), "%Y%B%d")
         enddate = datetime.datetime.strptime(str(datetime.datetime.now().year) + endmonth + str(endday), "%Y%B%d")
-        today = datetime.datetime.today()
-        if startdate < enddate:
-            if startdate < today < enddate:
-                return True
+
+        if startdate < enddate < today:
+            return False
+        if enddate < startdate < today:
+            return True
+        if startdate < today < enddate:
+            return True
+        if enddate < today < startdate:
+            return False
+        if today < startdate < enddate:
+            return False
+        if today < enddate < startdate:
+            return True
         else:
-            if startdate > today > enddate:
-                return True
-        return False
+            return False
