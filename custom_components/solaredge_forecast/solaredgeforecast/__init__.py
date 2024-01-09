@@ -102,7 +102,7 @@ class SolaredgeForecast(object):
         # calculate the progress of the currently produced energy in relation to the forecast. A positive value means
         # that the produced energy is ahead of forecast, a negative value means that it is behind forecast
         energy_production_progress = energy_produced_until_yesterday - energy_estimated_until_yesterday\
-                                     +  max(0, energy_produced_today - energy_estimated_today)
+                                     + max(0, energy_produced_today - energy_estimated_today)
 
         # Calculate the total estimated energy production
         forecast = energy_estimated_period + energy_production_until_now
