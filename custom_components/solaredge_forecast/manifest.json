@@ -7,7 +7,7 @@
     "documentation": "https://github.com/nelbs/solaredge-forecast",
     "iot_class": "cloud_polling",
     "issue_tracker": "https://github.com/nelbs/solaredge-forecast/issues",
-    "requirements": [],
-    "version": "1.0.1"
+    "requirements": ["solaredge==0.0.4"],
+    "version": "1.0.2"
   }
   
