@@ -9,7 +9,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import (
-    ENERGY_KILO_WATT_HOUR
+    UnitOfEnergy
 )
 
 DOMAIN = "solaredge_forecast"
@@ -56,7 +56,7 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
         key="solaredge_forecast",
         name="Solar energy forecast",
         icon="mdi:solar-power",
-        native_unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
     ),
@@ -64,7 +64,7 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
         key="solaredge_produced",
         name="Solar energy produced",
         icon="mdi:solar-power",
-        native_unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
     ),
@@ -72,7 +72,7 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
         key="solaredge_estimated",
         name="Solar energy expected",
         icon="mdi:solar-power",
-        native_unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
     ),
@@ -80,7 +80,7 @@ SENSOR_TYPES: tuple[SolaredgeForecastSensorEntityDescription, ...] = (
         key="solaredge_progress",
         name="Solar energy progress",
         icon="mdi:solar-power",
-        native_unit_of_measurement=ENERGY_KILO_WATT_HOUR,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL,
     ),
