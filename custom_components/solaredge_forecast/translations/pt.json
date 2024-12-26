@@ -1,0 +1,62 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Defina a integração Solaredge Forecast",
+        "data": {
+          "site id": "O ID da instalação de energia solar",
+          "account key": "A chave para ligar à API SolarEdge",
+          "startday": "Dia de início do período de previsão",
+          "startmonth": "Mês de início do período de previsão",
+          "endday": "Dia de fim do período de previsão",
+          "endmonth": "Mês de fim do período de previsão",
+          "startdate production": "OPCIONAL: Data de início da produção de energia solar %d%m%Y"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
+    }
+  },
+  "options": {
+    "step": {
+      "user": {
+        "title": "Defina a integração Solaredge Forecast",
+        "data": {
+          "site id": "O ID da instalação de energia solar",
+          "account key": "A chave para ligar à API SolarEdge",
+          "startday": "Dia de início do período de previsão",
+          "startmonth": "Mês de início do período de previsão",
+          "endday": "Dia de fim do período de previsão",
+          "endmonth": "Mês de fim do período de previsão",
+          "startdate production": "OPCIONAL: Data de início da produção de energia solar %d%m%Y"
+        }
+      }
+    },
+    "error": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
+      "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
+    }
+  }
+}
