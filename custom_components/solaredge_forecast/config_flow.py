@@ -84,9 +84,8 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry,) -> SolaredgeForecastOptionsFlowHandler:
-        """Create the options flow."""
-        return SolaredgeForecastOptionsFlowHandler()
+    def async_get_options_flow(config_entry):
+        return SolaredgeForecastOptionsFlowHandler(config_entry)
 
     async def _show_config_form(self, user_input):  # pylint: disable=unused-argument
         """Show the configuration form to edit config data."""
@@ -178,8 +177,9 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
     """Blueprint config flow options handler."""
 
-    def __init__(self):
+    def __init__(self,config_entry):
         """Initialize options flow."""
+        self.config_entry = config_entry
         self._errors: dict = {}
         self.options = dict(config_entry.options)
 
