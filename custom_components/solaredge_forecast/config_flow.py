@@ -32,7 +32,6 @@ from .const import (
 )
 
 DAY_SCHEMA = vol.All(vol.Coerce(int), vol.Range(min=1, max=31))
-REQUIRED_STRING = vol.All(cv.string, lambda value: value.strip(), vol.Length(min=1))
 
 
 def _month_number(month: str) -> int:
@@ -104,6 +103,9 @@ def _validate_user_input(user_input: dict[str, Any]) -> dict[str, str]:
     errors: dict[str, str] = {}
     today = dt_util.now().date()
 
+    if not str(user_input[CONF_ACCOUNT_KEY]).strip():
+        errors[CONF_ACCOUNT_KEY] = "invalid_account_key"
+
     try:
         _day_month_to_date(
             user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH], today.year
@@ -168,7 +170,7 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     return vol.Schema(
         {
             site_id: cv.positive_int,
-            account_key: REQUIRED_STRING,
+            account_key: cv.string,
             vol.Required(
                 CONF_STARTDAY,
                 default=defaults.get(CONF_STARTDAY, DEFAULT_STARTDAY),

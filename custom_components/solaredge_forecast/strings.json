@@ -19,6 +19,7 @@
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
       "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_account_key": "The SolarEdge API key is required.",
       "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     },
     "abort": {
@@ -26,6 +27,7 @@
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
       "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
+      "invalid_account_key": "The SolarEdge API key is required.",
       "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     }
   },

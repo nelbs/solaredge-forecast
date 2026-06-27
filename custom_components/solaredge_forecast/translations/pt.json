@@ -19,6 +19,7 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     },
     "abort": {
@@ -26,6 +27,7 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     }
   },
@@ -49,6 +51,7 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     },
     "abort": {
@@ -56,6 +59,7 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
+      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     }
   }

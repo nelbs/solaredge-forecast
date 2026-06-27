@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 from calendar import monthrange
 from datetime import date, timedelta
 import logging
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -35,7 +34,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = ["sensor"]
 UPDATE_INTERVAL = timedelta(minutes=15)
 
 
@@ -44,11 +43,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         coordinator = SolaredgeForecastData(hass, entry)
     except ValueError as err:
-        raise ConfigEntryError(str(err)) from err
+        _LOGGER.error("Invalid SolarEdge Forecast configuration: %s", err)
+        return False
 
     await coordinator.async_config_entry_first_refresh()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    if hasattr(hass.config_entries, "async_forward_entry_setups"):
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    else:
+        await asyncio.gather(
+            *[
+                hass.config_entries.async_forward_entry_setup(entry, platform)
+                for platform in PLATFORMS
+            ]
+        )
     entry.async_on_unload(entry.add_update_listener(update_listener))
     return True
 
@@ -60,7 +68,17 @@ async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if hasattr(hass.config_entries, "async_unload_platforms"):
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    else:
+        unload_ok = all(
+            await asyncio.gather(
+                *[
+                    hass.config_entries.async_forward_entry_unload(entry, platform)
+                    for platform in PLATFORMS
+                ]
+            )
+        )
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
@@ -130,13 +148,21 @@ class SolaredgeForecastData(DataUpdateCoordinator):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
-        super().__init__(
-            hass,
-            _LOGGER,
-            config_entry=entry,
-            name="SolarEdge Forecast",
-            update_interval=UPDATE_INTERVAL,
-        )
+        try:
+            super().__init__(
+                hass,
+                _LOGGER,
+                config_entry=entry,
+                name="SolarEdge Forecast",
+                update_interval=UPDATE_INTERVAL,
+            )
+        except TypeError:
+            super().__init__(
+                hass,
+                _LOGGER,
+                name="SolarEdge Forecast",
+                update_interval=UPDATE_INTERVAL,
+            )
 
         settings = _entry_settings(entry)
         account_key = str(settings[CONF_ACCOUNT_KEY]).strip()
