@@ -1,4 +1,5 @@
 """Constants for the solaredge forecast integration."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,9 +9,7 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import (
-    UnitOfEnergy
-)
+from homeassistant.const import UnitOfEnergy
 
 DOMAIN = "solaredge_forecast"
 
@@ -24,10 +23,10 @@ CONF_ENDMONTH = "endmonth"
 CONF_STARTDATE_PRODUCTION = "startdate production"
 
 DEFAULT_ACCOUNT_KEY = ""
-DEFAULT_SITE_ID = ""
-DEFAULT_STARTDAY = "01"
+DEFAULT_SITE_ID = 0
+DEFAULT_STARTDAY = 1
 DEFAULT_STARTMONTH = "January"
-DEFAULT_ENDDAY = "31"
+DEFAULT_ENDDAY = 31
 DEFAULT_ENDMONTH = "December"
 DEFAULT_STARTDATE_PRODUCTION = ""
 
@@ -43,8 +42,9 @@ MONTHS = [
     "September",
     "October",
     "November",
-    "December"
+    "December",
 ]
+
 
 @dataclass
 class SolaredgeForecastSensorEntityDescription(SensorEntityDescription):

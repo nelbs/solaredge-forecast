@@ -1,292 +1,268 @@
-"""Config flow for solaredge forecast integration."""
-import datetime
-import logging
+"""Config flow for the SolarEdge Forecast integration."""
+
+from __future__ import annotations
+
+from datetime import date, datetime, timedelta
+from typing import Any
 
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ACCOUNT_KEY,
-    CONF_SITE_ID,
-    CONF_STARTDAY,
-    CONF_STARTMONTH,
     CONF_ENDDAY,
     CONF_ENDMONTH,
+    CONF_SITE_ID,
     CONF_STARTDATE_PRODUCTION,
+    CONF_STARTDAY,
+    CONF_STARTMONTH,
     DEFAULT_ACCOUNT_KEY,
-    DEFAULT_SITE_ID,
-    DEFAULT_STARTDAY,
-    DEFAULT_STARTMONTH,
     DEFAULT_ENDDAY,
     DEFAULT_ENDMONTH,
+    DEFAULT_SITE_ID,
     DEFAULT_STARTDATE_PRODUCTION,
+    DEFAULT_STARTDAY,
+    DEFAULT_STARTMONTH,
     DOMAIN,
     MONTHS,
 )
 
-_LOGGER = logging.getLogger(__name__)
+DAY_SCHEMA = vol.All(vol.Coerce(int), vol.Range(min=1, max=31))
+REQUIRED_STRING = vol.All(cv.string, lambda value: value.strip(), vol.Length(min=1))
 
 
-@callback
-def solaredge_forecast_entries(hass: HomeAssistant):
-    """Return the installation ID already configured."""
+def _month_number(month: str) -> int:
+    """Return the month number for an English month name."""
+    return MONTHS.index(month) + 1
+
+
+def _day_month_to_date(day: int | str, month: str, year: int) -> date:
+    """Convert a day and month name to a date in the given year."""
+    return date(year, _month_number(month), int(day))
+
+
+def _parse_startdate_production(value: str) -> date | None:
+    """Parse the optional production start date from the config flow."""
+    cleaned = value.replace("/", "").replace("-", "").replace(" ", "")
+    if not cleaned:
+        return None
+    return datetime.strptime(cleaned, "%d%m%Y").date()
+
+
+def _entry_value(
+    entry: config_entries.ConfigEntry, key: str, default: Any = None
+) -> Any:
+    """Return an entry setting, preferring options for legacy entries."""
+    if key in entry.options:
+        return entry.options[key]
+    return entry.data.get(key, default)
+
+
+def _entry_settings(entry: config_entries.ConfigEntry) -> dict[str, Any]:
+    """Return all settings for a config entry."""
     return {
-        entry.data[CONF_SITE_ID] for entry in hass.config_entries.async_entries(DOMAIN)
+        CONF_SITE_ID: _entry_value(entry, CONF_SITE_ID, DEFAULT_SITE_ID),
+        CONF_ACCOUNT_KEY: _entry_value(entry, CONF_ACCOUNT_KEY, DEFAULT_ACCOUNT_KEY),
+        CONF_STARTDAY: _entry_value(entry, CONF_STARTDAY, DEFAULT_STARTDAY),
+        CONF_STARTMONTH: _entry_value(entry, CONF_STARTMONTH, DEFAULT_STARTMONTH),
+        CONF_ENDDAY: _entry_value(entry, CONF_ENDDAY, DEFAULT_ENDDAY),
+        CONF_ENDMONTH: _entry_value(entry, CONF_ENDMONTH, DEFAULT_ENDMONTH),
+        CONF_STARTDATE_PRODUCTION: _entry_value(
+            entry, CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION
+        ),
     }
 
 
+def _site_id_exists(
+    hass: HomeAssistant, site_id: int | str, ignore_entry_id: str | None = None
+) -> bool:
+    """Return whether the site ID is already configured."""
+    try:
+        normalized_site_id = int(site_id)
+    except (TypeError, ValueError):
+        return False
+
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if entry.entry_id == ignore_entry_id:
+            continue
+        configured_site_id = _entry_value(entry, CONF_SITE_ID)
+        try:
+            configured_site_id = int(configured_site_id)
+        except (TypeError, ValueError):
+            continue
+        if configured_site_id == normalized_site_id:
+            return True
+    return False
+
+
+def _validate_user_input(user_input: dict[str, Any]) -> dict[str, str]:
+    """Validate config or options flow input."""
+    errors: dict[str, str] = {}
+    today = dt_util.now().date()
+
+    try:
+        _day_month_to_date(
+            user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH], today.year
+        )
+    except ValueError:
+        errors[CONF_STARTDAY] = "invalid_startday"
+
+    try:
+        _day_month_to_date(
+            user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH], today.year
+        )
+    except ValueError:
+        errors[CONF_ENDDAY] = "invalid_endday"
+
+    try:
+        startdate_production = _parse_startdate_production(
+            user_input.get(CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION)
+        )
+    except ValueError:
+        errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
+    else:
+        if (
+            startdate_production is not None
+            and today - startdate_production < timedelta(days=365)
+        ):
+            errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
+
+    if not errors and not _period_contains_today(user_input, today):
+        errors[CONF_ENDMONTH] = "invalid_period"
+
+    return errors
+
+
+def _period_contains_today(user_input: dict[str, Any], today: date) -> bool:
+    """Return whether the forecast period contains today."""
+    startdate = _day_month_to_date(
+        user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH], today.year
+    )
+    enddate = _day_month_to_date(
+        user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH], today.year
+    )
+
+    if startdate <= enddate:
+        return startdate <= today <= enddate
+    return today >= startdate or today <= enddate
+
+
+def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
+    """Return the config or options form schema."""
+    defaults = defaults or {}
+    site_id = (
+        vol.Required(CONF_SITE_ID, default=defaults[CONF_SITE_ID])
+        if CONF_SITE_ID in defaults
+        else vol.Required(CONF_SITE_ID)
+    )
+    account_key = (
+        vol.Required(CONF_ACCOUNT_KEY, default=defaults[CONF_ACCOUNT_KEY])
+        if CONF_ACCOUNT_KEY in defaults
+        else vol.Required(CONF_ACCOUNT_KEY)
+    )
+
+    return vol.Schema(
+        {
+            site_id: cv.positive_int,
+            account_key: REQUIRED_STRING,
+            vol.Required(
+                CONF_STARTDAY,
+                default=defaults.get(CONF_STARTDAY, DEFAULT_STARTDAY),
+            ): DAY_SCHEMA,
+            vol.Required(
+                CONF_STARTMONTH,
+                default=defaults.get(CONF_STARTMONTH, DEFAULT_STARTMONTH),
+            ): vol.In(MONTHS),
+            vol.Required(
+                CONF_ENDDAY,
+                default=defaults.get(CONF_ENDDAY, DEFAULT_ENDDAY),
+            ): DAY_SCHEMA,
+            vol.Required(
+                CONF_ENDMONTH,
+                default=defaults.get(CONF_ENDMONTH, DEFAULT_ENDMONTH),
+            ): vol.In(MONTHS),
+            vol.Optional(
+                CONF_STARTDATE_PRODUCTION,
+                default=defaults.get(
+                    CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION
+                ),
+            ): cv.string,
+        }
+    )
+
+
 class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for solaredge forecast integration."""
+    """Handle a config flow for SolarEdge Forecast."""
 
     VERSION = 1
 
-    def __init__(self) -> None:
-        """Initialize the config flow."""
-        self._errors: dict = {}
-
-    async def async_step_user(self, user_input=None):
-        """Step when user initializes a integration."""
-        self._errors = {}
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        """Handle the initial setup step."""
+        errors: dict[str, str] = {}
 
         if user_input is not None:
-            if not await self._date_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH]):
-                self._errors[CONF_STARTDAY] = "invalid_startday"
-            elif not await self._date_validation(user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH]):
-                self._errors[CONF_ENDDAY] = "invalid_endday"
-            elif not await self._startdate_validation(user_input[CONF_STARTDATE_PRODUCTION]):
-                self._errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
-            elif not await self._period_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH],
-                                                   user_input[CONF_ENDDAY],user_input[CONF_ENDMONTH]):
-                self._errors[CONF_ENDMONTH] = "invalid_period"
-            elif await self._installation_id_in_configuration_exists(self.hass, user_input[CONF_SITE_ID]):
-                self._errors[CONF_SITE_ID] = "already_configured"
-            elif await self._account_key_in_configuration_exists(self.hass, user_input[CONF_ACCOUNT_KEY]):
-                self._errors[CONF_ACCOUNT_KEY] = "already_configured"
-            else:
+            errors = _validate_user_input(user_input)
+            if not errors and _site_id_exists(self.hass, user_input[CONF_SITE_ID]):
+                errors[CONF_SITE_ID] = "already_configured"
+
+            if not errors:
+                await self.async_set_unique_id(str(user_input[CONF_SITE_ID]))
+                self._abort_if_unique_id_configured()
                 return self.async_create_entry(
-                    title="Solaredge Forecast", data=user_input
+                    title=f"SolarEdge Forecast {user_input[CONF_SITE_ID]}",
+                    data=user_input,
                 )
 
-        user_input = {}
-        # Provide defaults for form
-        user_input[CONF_SITE_ID] = DEFAULT_SITE_ID
-        user_input[CONF_ACCOUNT_KEY] = DEFAULT_ACCOUNT_KEY
-        user_input[CONF_STARTDAY] = DEFAULT_STARTDAY
-        user_input[CONF_STARTMONTH] = DEFAULT_STARTMONTH
-        user_input[CONF_ENDDAY] = DEFAULT_ENDDAY
-        user_input[CONF_ENDMONTH] = DEFAULT_ENDMONTH
-        user_input[CONF_STARTDATE_PRODUCTION] = DEFAULT_STARTDATE_PRODUCTION
-
-        return await self._show_config_form(user_input)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_schema(user_input),
+            errors=errors,
+        )
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
-        return SolaredgeForecastOptionsFlowHandler(config_entry)
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Create the options flow."""
+        return SolaredgeForecastOptionsFlowHandler()
 
-    async def _show_config_form(self, user_input):  # pylint: disable=unused-argument
-        """Show the configuration form to edit config data."""
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SITE_ID, default=user_input.get(CONF_SITE_ID, DEFAULT_SITE_ID)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_ACCOUNT_KEY, default=user_input.get(CONF_ACCOUNT_KEY, DEFAULT_ACCOUNT_KEY)
-                    ): cv.string,
-                    vol.Optional(
-                        CONF_STARTDAY, default=user_input.get(CONF_STARTDAY, DEFAULT_STARTDAY)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_STARTMONTH, default=user_input.get(CONF_STARTMONTH, DEFAULT_STARTMONTH)
-                    ):  vol.In(MONTHS),
-                    vol.Optional(
-                        CONF_ENDDAY, default=user_input.get(CONF_ENDDAY, DEFAULT_ENDDAY)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_ENDMONTH, default=user_input.get(CONF_ENDMONTH, DEFAULT_ENDMONTH)
-                    ): vol.In(MONTHS),
-                    vol.Optional(
-                        CONF_STARTDATE_PRODUCTION, default=user_input.get(CONF_STARTDATE_PRODUCTION, DEFAULT_STARTDATE_PRODUCTION)
-                    ): cv.string,
-                }
-            ),
-            errors=self._errors,
-        )
-
-    async def _date_validation(self, day, month) -> bool:
-        """Return True if day and month is a correct date."""
-        try:
-            datetime.datetime.strptime(
-                str(datetime.datetime.now().year) + month + str(day), "%Y%B%d"
-            )
-            return True
-        except ValueError:
-            return False
-
-    async def _startdate_validation(self, date) -> bool:
-        """Return True if date is a correct date."""
-        if date == "":
-            return True
-        try:
-            if (datetime.datetime.today() - datetime.datetime.strptime(date.replace("/","").replace("-", "")
-                                                           .replace(" ", ""), "%d%m%Y")).days < 365:
-                return False
-            return True
-        except ValueError:
-            return False
-
-    async def _period_validation(self, startday, startmonth, endday, endmonth) -> bool:
-        """Return True if today is within time period."""
-        today = datetime.datetime.today()
-        startdate = datetime.datetime.strptime(str(datetime.datetime.now().year) + startmonth + str(startday), "%Y%B%d")
-        enddate = datetime.datetime.strptime(str(datetime.datetime.now().year) + endmonth + str(endday), "%Y%B%d")
-
-        if startdate < enddate < today:
-            return False
-        if enddate < startdate < today:
-            return True
-        if startdate < today < enddate:
-            return True
-        if enddate < today < startdate:
-            return False
-        if today < startdate < enddate:
-            return False
-        if today < enddate < startdate:
-            return True
-        else:
-            return False
-
-    async def _installation_id_in_configuration_exists(self, hass, installation_id_entry) -> bool:
-        """Return True if installation id exists in configuration."""
-        if installation_id_entry in solaredge_forecast_entries(hass):
-            return True
-        return False
-
-    async def _account_key_in_configuration_exists(self, hass, account_key__entry) -> bool:
-        """Return True if account key exists in configuration."""
-        if account_key__entry in solaredge_forecast_entries(hass):
-            return True
-        return False
 
 class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
-    """Blueprint config flow options handler."""
+    """Handle SolarEdge Forecast options."""
 
-    def __init__(self,config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
-        self._errors: dict = {}
-        self.options = dict(config_entry.options)
-
-    async def async_step_init(self, user_input=None):  # pylint: disable=unused-argument
+    async def async_step_init(self, user_input=None):
         """Manage the options."""
-        return await self.async_step_user()
+        return await self.async_step_user(user_input)
 
-    async def async_step_user(self, user_input=None):
-        """Handle a flow initialized by the user."""
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+        """Handle options submitted by the user."""
+        errors: dict[str, str] = {}
+        defaults = (
+            user_input if user_input is not None else _entry_settings(self.config_entry)
+        )
+
         if user_input is not None:
-            self.options.update(user_input)
-            if not await self._date_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH]):
-                self._errors[CONF_STARTDAY] = "invalid_startday"
-            elif not await self._date_validation(user_input[CONF_ENDDAY], user_input[CONF_ENDMONTH]):
-                self._errors[CONF_ENDDAY] = "invalid_endday"
-            elif not await self._startdate_validation(user_input[CONF_STARTDATE_PRODUCTION]):
-                self._errors[CONF_STARTDATE_PRODUCTION] = "invalid_startdate_production"
-            elif not await self._period_validation(user_input[CONF_STARTDAY], user_input[CONF_STARTMONTH],
-                                                   user_input[CONF_ENDDAY],user_input[CONF_ENDMONTH]):
-                self._errors[CONF_ENDMONTH] = "invalid_period"
-            else:
-                return await self._update_options()
+            errors = _validate_user_input(user_input)
+            if not errors and _site_id_exists(
+                self.hass,
+                user_input[CONF_SITE_ID],
+                ignore_entry_id=self.config_entry.entry_id,
+            ):
+                errors[CONF_SITE_ID] = "already_configured"
+
+            if not errors:
+                return self.async_create_entry(
+                    title=f"SolarEdge Forecast {user_input[CONF_SITE_ID]}",
+                    data=user_input,
+                )
+
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SITE_ID, default=self.options.get(CONF_SITE_ID, DEFAULT_SITE_ID)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_ACCOUNT_KEY, default=self.options.get(CONF_ACCOUNT_KEY, DEFAULT_ACCOUNT_KEY)
-                    ): cv.string,
-                    vol.Optional(
-                        CONF_STARTDAY, default=self.options.get(CONF_STARTDAY, DEFAULT_STARTDAY)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_STARTMONTH, default=self.options.get(CONF_STARTMONTH, DEFAULT_STARTMONTH)
-                    ):  vol.In(MONTHS),
-                    vol.Optional(
-                        CONF_ENDDAY, default=self.options.get(CONF_ENDDAY, DEFAULT_ENDDAY)
-                    ): cv.positive_int,
-                    vol.Optional(
-                        CONF_ENDMONTH, default=self.options.get(CONF_ENDMONTH, DEFAULT_ENDMONTH)
-                    ): vol.In(MONTHS),
-                    vol.Optional(
-                        CONF_STARTDATE_PRODUCTION, default=self.options.get(CONF_STARTDATE_PRODUCTION,
-                                                                            DEFAULT_STARTDATE_PRODUCTION)
-                    ): cv.string,
-                }
-            ),
-            errors=self._errors,
+            data_schema=_schema(defaults),
+            errors=errors,
         )
-    async def async_end(self):
-        """Finalization of the ConfigEntry creation"""
-        _LOGGER.info(
-            "Recreating entry %s due to configuration change",
-            self.config_entry.entry_id,
-        )
-        self.hass.config_entries.async_update_entry(self.config_entry, data=self._infos)
-        return self.async_create_entry(title=None, data=None)
-
-    async def _update_options(self):
-        """Update config entry options."""
-        return self.async_create_entry(
-            title="Solaredge Forecast", data=self.options
-        )
-
-    async def _date_validation(self, day, month) -> bool:
-        """Return True if day and month is a correct date."""
-        try:
-            datetime.datetime.strptime(
-                str(datetime.datetime.now().year) + month + str(day), "%Y%B%d"
-            )
-            return True
-        except ValueError:
-            return False
-
-    async def _startdate_validation(self, date) -> bool:
-        """Return True if date is a correct date."""
-        if date == "":
-            return True
-        try:
-            if (datetime.datetime.today() - datetime.datetime.strptime(date.replace("/","").replace("-", "")
-                                                           .replace(" ", ""), "%d%m%Y")).days < 365:
-                return False
-            return True
-        except ValueError:
-            return False
-
-
-    async def _period_validation(self, startday, startmonth, endday, endmonth) -> bool:
-        """Return True if today is within time period."""
-        today = datetime.datetime.today()
-        startdate = datetime.datetime.strptime(str(datetime.datetime.now().year) + startmonth + str(startday), "%Y%B%d")
-        enddate = datetime.datetime.strptime(str(datetime.datetime.now().year) + endmonth + str(endday), "%Y%B%d")
-
-        if startdate < enddate < today:
-            return False
-        if enddate < startdate < today:
-            return True
-        if startdate < today < enddate:
-            return True
-        if enddate < today < startdate:
-            return False
-        if today < startdate < enddate:
-            return False
-        if today < enddate < startdate:
-            return True
-        else:
-            return False

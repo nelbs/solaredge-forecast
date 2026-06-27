@@ -1,23 +1,35 @@
-"""Module to make a forecast for the solar energy production"""
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
-import solaredge
-import pandas as pd
+"""Create a SolarEdge production forecast."""
 
-class SolaredgeForecast(object):
-    """Solaredge forecast data"""
-    def __init__(self, startdate, enddate, startdate_production, site_id, account_key):
-        self.startdate = datetime.strptime(startdate, '%Y%m%d').date()
-        self.enddate = datetime.strptime(enddate, '%Y%m%d').date()
+from __future__ import annotations
+
+from calendar import month_name, monthrange
+from datetime import date, datetime, timedelta
+from typing import Any
+
+import solaredge
+
+DATE_FORMAT = "%Y%m%d"
+PRODUCTION_DATE_FORMAT = "%d%m%Y"
+WH_PER_KWH = 1000
+
+
+class SolaredgeForecast:
+    """SolarEdge forecast data."""
+
+    def __init__(
+        self,
+        startdate: str,
+        enddate: str,
+        startdate_production: str,
+        site_id: int,
+        account_key: str,
+    ) -> None:
+        """Initialize forecast data."""
+        self.startdate = datetime.strptime(startdate, DATE_FORMAT).date()
+        self.enddate = datetime.strptime(enddate, DATE_FORMAT).date()
         self.site_id = site_id
         self.account_key = account_key
-        if startdate_production:
-            date = (datetime.strptime(startdate_production, '%d%m%Y'))
-            if date.day > 1:
-                date += relativedelta(months=1, day=1)
-            self.startdate_production = date.date()
-        else:
-            self.startdate_production = startdate_production
+        self.startdate_production = _production_start_date(startdate_production)
 
         data = self.get_solar_forecast()
 
@@ -26,91 +38,228 @@ class SolaredgeForecast(object):
         self.solaredge_forecast = data["Solar energy forecast"]
         self.solaredge_progress = data["Solar energy progress"]
 
-    def get_solar_forecast(self):
+    def get_solar_forecast(self) -> dict[str, int]:
         """Calculate solar energy forecast."""
         now = datetime.now()
         yesterday = now.date() - timedelta(days=1)
         today = now.date()
         tomorrow = now.date() + timedelta(days=1)
-        last_month = now.date().replace(day=1) - timedelta(days=1)
+        last_month = today.replace(day=1) - timedelta(days=1)
 
-        # connect to Solaredge API
-        data = solaredge.Solaredge(self.account_key)
+        client = solaredge.Solaredge(self.account_key)
 
-        # Get date when production started
-        if not self.startdate_production:
-            start_production = data.get_data_period(site_id=self.site_id)["dataPeriod"]["startDate"]
-            self.startdate_production = (datetime.strptime(start_production, "%Y-%m-%d")
-                                         + relativedelta(months=1, day=1)).date()
+        if self.startdate_production is None:
+            data_period = client.get_data_period(site_id=self.site_id)
+            start_production = data_period["dataPeriod"]["startDate"]
+            self.startdate_production = _first_day_next_month(
+                _parse_api_date(start_production)
+            )
 
-        # Get energy production per month from production start until now and store in dataframe
-        energy_month_average = data.get_energy(site_id=self.site_id,
-                                               start_date=self.startdate_production,
-                                               end_date=last_month,
-                                               time_unit="MONTH")
-        # create dataframe with values per month
-        df = pd.DataFrame(energy_month_average['energy']['values'])
-        df.rename(columns={'value': 'energy'}, inplace=True)
-        df = df[df.energy != 0]
-        df['date'] = pd.to_datetime(df['date'])
-        df['year'] = df.date.dt.year
-        df['month'] = df.date.dt.month
-        df['days_in_month'] = df.date.dt.days_in_month
-        # change wh to Kwh
-        df['energy'] = df.energy / df.days_in_month / 1000
-        # create series of monthly averages
-        averages = df.groupby(df.date.dt.month)['energy'].mean()
+        if self.startdate_production > last_month:
+            raise ValueError(
+                "At least one complete month of production history is required"
+            )
 
-        # create dataframe with all days between startdate - 1 month and enddate + 1 month
-        daily = pd.DataFrame(
-            pd.date_range(start=self.startdate - relativedelta(months=1), end=self.enddate + relativedelta(months=1)),
-            columns=['date'])
-        daily = daily.set_index('date', drop=False)
-        daily['month'] = daily.date.dt.month
-        daily['day'] = daily.date.dt.day
+        energy_month_average = client.get_energy(
+            site_id=self.site_id,
+            start_date=self.startdate_production,
+            end_date=last_month,
+            time_unit="MONTH",
+        )
+        averages = _monthly_daily_averages(energy_month_average)
+        interpolation_points = _interpolation_points(
+            averages,
+            _add_months(self.startdate, -1),
+            _add_months(self.enddate, 1),
+        )
 
-        # add average energy production per month for 1 day and store at the 15th day in the dataframe
-        def average(row):
-            """ function to return the daily average energy for a given month"""
-            if row['day'] == 15:
-                return averages[row["month"]]
-        daily['energy'] = daily.apply(average, axis=1)
+        energy_estimated_from_tomorrow = _sum_daily_energy(
+            tomorrow, self.enddate, interpolation_points
+        )
+        energy_estimated_until_yesterday = _sum_daily_energy(
+            self.startdate, yesterday, interpolation_points
+        )
+        energy_estimated_today = _sum_daily_energy(today, today, interpolation_points)
 
-        # interpolate between the 15th day of each month
-        daily = daily.interpolate(limit_direction='both')
+        energy_production_until_now = _time_frame_energy_kwh(
+            client,
+            site_id=self.site_id,
+            start_date=self.startdate,
+            end_date=tomorrow,
+            time_unit="YEAR",
+        )
+        energy_produced_today = _time_frame_energy_kwh(
+            client,
+            site_id=self.site_id,
+            start_date=today,
+            end_date=tomorrow,
+            time_unit="DAY",
+        )
 
-        energy_estimated_from_tomorrow = daily.loc[tomorrow:self.enddate]['energy'].sum()
-        energy_estimated_until_yesterday = daily.loc[self.startdate:yesterday]['energy'].sum()
-        energy_estimated_today = daily.loc[today:today]['energy'].sum()
+        energy_estimated_period = energy_estimated_from_tomorrow + max(
+            0, energy_estimated_today - energy_produced_today
+        )
 
-        # Calculated produced energy from start until today
-        energy_production_until_now = data.get_time_frame_energy(site_id=self.site_id,
-                                                                start_date=self.startdate,
-                                                                end_date=self.enddate,
-                                                                time_unit="YEAR")['timeFrameEnergy']['energy'] / 1000
-        # Get produced energy today
-        energy_produced_today = data.get_time_frame_energy(site_id=self.site_id,
-                                                           start_date=now.date(),
-                                                           end_date=tomorrow,
-                                                           time_unit="day")['timeFrameEnergy']['energy'] / 1000
+        energy_produced_until_yesterday = (
+            energy_production_until_now - energy_produced_today
+        )
 
-        energy_estimated_period = energy_estimated_from_tomorrow\
-                                  + max(0, energy_estimated_today - energy_produced_today)
+        energy_production_progress = (
+            energy_produced_until_yesterday
+            - energy_estimated_until_yesterday
+            + max(0, energy_produced_today - energy_estimated_today)
+        )
 
-        energy_produced_until_yesterday = energy_production_until_now - energy_produced_today
-
-        # calculate the progress of the currently produced energy in relation to the forecast. A positive value means
-        # that the produced energy is ahead of forecast, a negative value means that it is behind forecast
-        energy_production_progress = energy_produced_until_yesterday - energy_estimated_until_yesterday\
-                                     + max(0, energy_produced_today - energy_estimated_today)
-
-        # Calculate the total estimated energy production
         forecast = energy_estimated_period + energy_production_until_now
 
-        data = {}
-        data["Solar energy produced"] = round(energy_production_until_now)
-        data["Solar energy estimated"] = round(energy_estimated_period)
-        data["Solar energy forecast"] = round(forecast)
-        data["Solar energy progress"] = round(energy_production_progress)
+        return {
+            "Solar energy produced": round(energy_production_until_now),
+            "Solar energy estimated": round(energy_estimated_period),
+            "Solar energy forecast": round(forecast),
+            "Solar energy progress": round(energy_production_progress),
+        }
 
-        return data
+
+def _production_start_date(value: str) -> date | None:
+    """Return the first complete production month from a user supplied date."""
+    if not value:
+        return None
+
+    parsed = datetime.strptime(value, PRODUCTION_DATE_FORMAT).date()
+    if parsed.day > 1:
+        return _first_day_next_month(parsed)
+    return parsed
+
+
+def _parse_api_date(value: Any) -> date:
+    """Parse a date returned by the SolarEdge API."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return datetime.strptime(str(value).split()[0], "%Y-%m-%d").date()
+
+
+def _first_day_next_month(value: date) -> date:
+    """Return the first day of the month after value."""
+    if value.month == 12:
+        return date(value.year + 1, 1, 1)
+    return date(value.year, value.month + 1, 1)
+
+
+def _add_months(value: date, months: int) -> date:
+    """Add months while keeping the date valid."""
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, monthrange(year, month)[1])
+    return date(year, month, day)
+
+
+def _date_range(start_date: date, end_date: date):
+    """Yield every date in an inclusive range."""
+    current = start_date
+    while current <= end_date:
+        yield current
+        current += timedelta(days=1)
+
+
+def _monthly_daily_averages(payload: dict[str, Any]) -> dict[int, float]:
+    """Return average daily kWh per calendar month from SolarEdge data."""
+    monthly_values: dict[int, list[float]] = {}
+    values = payload.get("energy", {}).get("values", [])
+
+    for item in values:
+        energy = item.get("value") or 0
+        if energy == 0:
+            continue
+
+        item_date = _parse_api_date(item["date"])
+        days_in_month = monthrange(item_date.year, item_date.month)[1]
+        monthly_values.setdefault(item_date.month, []).append(
+            energy / days_in_month / WH_PER_KWH
+        )
+
+    if not monthly_values:
+        raise ValueError("SolarEdge returned no historical monthly production data")
+
+    return {
+        month: sum(values) / len(values)
+        for month, values in monthly_values.items()
+        if values
+    }
+
+
+def _interpolation_points(
+    averages: dict[int, float], start_date: date, end_date: date
+) -> list[tuple[date, float]]:
+    """Return monthly interpolation points on the 15th day of each month."""
+    points: list[tuple[date, float]] = []
+    missing_months: set[int] = set()
+
+    for current in _date_range(start_date, end_date):
+        if current.day != 15:
+            continue
+        if current.month not in averages:
+            missing_months.add(current.month)
+            continue
+        points.append((current, averages[current.month]))
+
+    if missing_months:
+        missing = ", ".join(month_name[month] for month in sorted(missing_months))
+        raise ValueError(f"Missing historical production data for: {missing}")
+    if not points:
+        raise ValueError("No monthly production data available for interpolation")
+
+    return points
+
+
+def _interpolated_daily_energy(day: date, points: list[tuple[date, float]]) -> float:
+    """Return the interpolated daily energy for a date."""
+    if day <= points[0][0]:
+        return points[0][1]
+    if day >= points[-1][0]:
+        return points[-1][1]
+
+    previous_point = points[0]
+    for next_point in points[1:]:
+        previous_date, previous_value = previous_point
+        next_date, next_value = next_point
+        if previous_date <= day <= next_date:
+            span_days = (next_date - previous_date).days
+            elapsed_days = (day - previous_date).days
+            fraction = elapsed_days / span_days
+            return previous_value + (next_value - previous_value) * fraction
+        previous_point = next_point
+
+    return points[-1][1]
+
+
+def _sum_daily_energy(
+    start_date: date, end_date: date, points: list[tuple[date, float]]
+) -> float:
+    """Sum interpolated daily energy over an inclusive date range."""
+    if start_date > end_date:
+        return 0
+    return sum(
+        _interpolated_daily_energy(day, points)
+        for day in _date_range(start_date, end_date)
+    )
+
+
+def _time_frame_energy_kwh(
+    client,
+    site_id: int,
+    start_date: date,
+    end_date: date,
+    time_unit: str,
+) -> float:
+    """Return SolarEdge time frame energy in kWh."""
+    payload = client.get_time_frame_energy(
+        site_id=site_id,
+        start_date=start_date,
+        end_date=end_date,
+        time_unit=time_unit,
+    )
+    energy = payload.get("timeFrameEnergy", {}).get("energy") or 0
+    return energy / WH_PER_KWH

@@ -1,4 +1,5 @@
 """Platform for solaredge forecast sensors."""
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers import update_coordinator
 from homeassistant.helpers.entity import StateType
@@ -11,7 +12,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Add solaredge forecast entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
-        SolaredgeForecastSensor(coordinator, description) for description in SENSOR_TYPES
+        SolaredgeForecastSensor(coordinator, description)
+        for description in SENSOR_TYPES
     )
 
 
@@ -34,5 +36,4 @@ class SolaredgeForecastSensor(update_coordinator.CoordinatorEntity, SensorEntity
     @property
     def native_value(self) -> StateType:
         """Return the native sensor value."""
-        state = getattr(self.coordinator.data, self.entity_description.key)
-        return state
+        return getattr(self.coordinator.data, self.entity_description.key, None)
