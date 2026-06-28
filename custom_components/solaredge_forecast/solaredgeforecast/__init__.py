@@ -8,9 +8,15 @@ from typing import Any
 
 import solaredge
 
+from ..util import redact_sensitive_values
+
 DATE_FORMAT = "%Y%m%d"
 PRODUCTION_DATE_FORMAT = "%d%m%Y"
 WH_PER_KWH = 1000
+
+
+class SolarEdgeApiError(Exception):
+    """Raised when SolarEdge returns an error with secrets redacted."""
 
 
 class SolaredgeForecast:
@@ -49,7 +55,9 @@ class SolaredgeForecast:
         client = solaredge.Solaredge(self.account_key)
 
         if self.startdate_production is None:
-            data_period = client.get_data_period(site_id=self.site_id)
+            data_period = _call_solaredge_api(
+                client.get_data_period, site_id=self.site_id
+            )
             start_production = data_period["dataPeriod"]["startDate"]
             self.startdate_production = _first_day_next_month(
                 _parse_api_date(start_production)
@@ -60,7 +68,8 @@ class SolaredgeForecast:
                 "At least one complete month of production history is required"
             )
 
-        energy_month_average = client.get_energy(
+        energy_month_average = _call_solaredge_api(
+            client.get_energy,
             site_id=self.site_id,
             start_date=self.startdate_production,
             end_date=last_month,
@@ -255,7 +264,8 @@ def _time_frame_energy_kwh(
     time_unit: str,
 ) -> float:
     """Return SolarEdge time frame energy in kWh."""
-    payload = client.get_time_frame_energy(
+    payload = _call_solaredge_api(
+        client.get_time_frame_energy,
         site_id=site_id,
         start_date=start_date,
         end_date=end_date,
@@ -263,3 +273,12 @@ def _time_frame_energy_kwh(
     )
     energy = payload.get("timeFrameEnergy", {}).get("energy") or 0
     return energy / WH_PER_KWH
+
+
+def _call_solaredge_api(method, **kwargs):
+    """Call SolarEdge and redact secrets from any raised exception."""
+    try:
+        return method(**kwargs)
+    except Exception as err:
+        message = redact_sensitive_values(str(err))
+        raise SolarEdgeApiError(message) from None

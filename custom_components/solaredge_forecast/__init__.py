@@ -6,7 +6,6 @@ import asyncio
 from calendar import monthrange
 from datetime import date, timedelta
 import logging
-import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -32,6 +31,7 @@ from .const import (
     DOMAIN,
     MONTHS,
 )
+from .util import redact_sensitive_values
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,7 +51,6 @@ TRANSIENT_ERROR_MARKERS = (
     "timed out",
     "temporarily unavailable",
 )
-API_KEY_PATTERN = re.compile(r"([?&]api_key=)[^&\s]+", re.IGNORECASE)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -232,7 +231,7 @@ class SolaredgeForecastData(DataUpdateCoordinator):
                 self.account_key,
             )
         except Exception as err:
-            message = _redact_sensitive_values(str(err))
+            message = redact_sensitive_values(str(err))
             if self.data is not None and _is_transient_error(message):
                 self.logger.warning(
                     "Keeping previous SolarEdge forecast data after transient update "
@@ -270,8 +269,3 @@ def _is_transient_error(message: str) -> bool:
     """Return whether an update error is likely temporary."""
     normalized = message.lower()
     return any(marker in normalized for marker in TRANSIENT_ERROR_MARKERS)
-
-
-def _redact_sensitive_values(message: str) -> str:
-    """Redact secrets from exception messages before logging."""
-    return API_KEY_PATTERN.sub(r"\1***", message)
