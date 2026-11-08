@@ -5,12 +5,28 @@
         "title": "Solaredge Forecast opties",
         "data": {
           "site id": "De ID of de installatie",
-          "account key": "De api sleutel om verbinding te maken met de SolarEdge API",
-          "startday": "Startdag van de periode waarover de voorspelling wordt gemaakt" ,
-          "startmonth": "Startmaand van de periode waarover de voorspelling wordt gemaakt" ,
+          "update_interval": "Update-interval in minuten (60-1440)",
+          "startday": "Startdag van de periode waarover de voorspelling wordt gemaakt",
+          "startmonth": "Startmaand van de periode waarover de voorspelling wordt gemaakt",
           "endday": "Einddag van de periode waarover de voorspelling wordt gemaakt",
           "endmonth": "Eindmaand van de periode waarover de voorspelling wordt gemaakt",
           "startdate production": "OPTIONEEL: Startdatum van energieproductie %d%m%Y"
+        }
+      },
+      "auth": {
+        "title": "SolarEdge V2 Site Access",
+        "description": "Registreer op developer.solaredge.com een Site Access-app met SITE_DATA-toegang. Vul de gegevens alleen hier in, nooit in een chat. De redirect-URI moet exact overeenkomen met de appregistratie.",
+        "data": {
+          "client_id": "Client-ID van de app",
+          "client_secret": "Client-secret van de app",
+          "redirect_uri": "Geregistreerde redirect-URI"
+        }
+      },
+      "authorize": {
+        "title": "Geef toegang tot je SolarEdge-installatie",
+        "description": "[Open SolarEdge toestemming]({authorization_url}) in een ander tabblad. Kies de ingestelde installatie en geef toestemming. Kopieer de volledige uiteindelijke URL uit de adresbalk naar dit formulier, ook als de redirectpagina niet laadt. Dit is een handmatige callback; deel de URL niet. Open bij een autorisatiefout de toestemmingslink opnieuw.",
+        "data": {
+          "callback_url": "Volledige callback-URL"
         }
       }
     },
@@ -19,15 +35,18 @@
       "invalid_startday": "Foutieve startdag (controleer dag-maand combinatie)",
       "invalid_endday": "Foutieve einddag (controleer dag-maand combinatie)",
       "invalid_period": "Foutieve periode (controleer of de huidige dag niet buiten de periode valt)",
-      "invalid_account_key": "De SolarEdge API-sleutel is verplicht.",
+      "invalid_auth": "Autorisatie mislukt. Controleer appgegevens en installatie-ID en geef opnieuw toestemming. Een afwijkende state of redirect-URI wordt geweigerd.",
+      "invalid_redirect": "Gebruik exact de geregistreerde HTTPS-redirect-URI, of HTTP op localhost, zonder queryparameters of fragment.",
+      "cannot_connect": "Verbinding met SolarEdge mislukt. Probeer opnieuw.",
+      "cannot_store": "Opslaan van de nieuwe autorisatie mislukt. Los de Home Assistant-opslagfout op en verstuur opnieuw; de code wordt niet tweemaal ingewisseld.",
       "invalid_startdate_production": "Foutieve datum, controleer of de datum correct is en dat deze minimaal 1 jaar in het verleden ligt"
     },
     "abort": {
+      "reauth_successful": "SolarEdge V2-autorisatie bijgewerkt. Bestaande sensoren en instellingen zijn behouden.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Foutieve startdag (controleer dag-maand combinatie)",
       "invalid_endday": "Foutieve einddag (controleer dag-maand combinatie)",
       "invalid_period": "Foutieve periode (controleer of de huidige dag niet buiten de periode valt)",
-      "invalid_account_key": "De SolarEdge API-sleutel is verplicht.",
       "invalid_startdate_production": "Foutieve datum, controleer of de datum correct is en dat deze minimaal 1 jaar in het verleden ligt"
     }
   },
@@ -37,9 +56,9 @@
         "title": "Solaredge Forecast opties",
         "data": {
           "site id": "De ID of de installatie",
-          "account key": "De api sleutel om verbinding te maken met de SolarEdge API",
-          "startday": "Startdag van de periode waarover de voorspelling wordt gemaakt" ,
-          "startmonth": "Startmaand van de periode waarover de voorspelling wordt gemaakt" ,
+          "update_interval": "Update-interval in minuten (60-1440)",
+          "startday": "Startdag van de periode waarover de voorspelling wordt gemaakt",
+          "startmonth": "Startmaand van de periode waarover de voorspelling wordt gemaakt",
           "endday": "Einddag van de periode waarover de voorspelling wordt gemaakt",
           "endmonth": "Eindmaand van de periode waarover de voorspelling wordt gemaakt",
           "startdate production": "OPTIONEEL: Startdatum van energieproductie %d%m%Y"
@@ -47,12 +66,12 @@
       }
     },
     "error": {
+      "site_change": "De geautoriseerde installatie kan niet worden gewijzigd. Voeg voor een andere installatie een aparte integratie toe.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Foutieve startdag (controleer dag-maand combinatie)",
       "invalid_endday": "Foutieve einddag (controleer dag-maand combinatie)",
       "invalid_period": "Foutieve periode (controleer of de huidige dag niet buiten de periode valt)",
       "invalid_startdate_production": "Foutieve datum, controleer of de datum correct is en dat deze minimaal 1 jaar in het verleden ligt"
-
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",

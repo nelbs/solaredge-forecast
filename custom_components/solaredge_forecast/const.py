@@ -21,8 +21,13 @@ CONF_STARTMONTH = "startmonth"
 CONF_ENDDAY = "endday"
 CONF_ENDMONTH = "endmonth"
 CONF_STARTDATE_PRODUCTION = "startdate production"
+CONF_UPDATE_INTERVAL = "update_interval"
+CONF_CLIENT_ID = "client_id"
+CONF_CLIENT_SECRET = "client_secret"
+CONF_REDIRECT_URI = "redirect_uri"
+CONF_TOKEN = "token"
+DEFAULT_UPDATE_INTERVAL = 120
 
-DEFAULT_ACCOUNT_KEY = ""
 DEFAULT_SITE_ID = 0
 DEFAULT_STARTDAY = 1
 DEFAULT_STARTMONTH = "January"

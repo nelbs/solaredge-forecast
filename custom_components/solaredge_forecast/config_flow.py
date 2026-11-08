@@ -2,31 +2,52 @@
 
 from __future__ import annotations
 
+import secrets
+from contextlib import nullcontext
 from datetime import date, datetime, timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
+import httpx
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 from homeassistant.util import dt as dt_util
+from solaredge import (
+    OAuthToken,
+    SolarEdgeError,
+    SolarEdgeOAuthError,
+    SolarEdgeValidationError,
+)
+from solaredge.oauth import async_exchange_code, authorization_url, parse_callback
 
+from .api import DurableTokenStore
 from .const import (
     CONF_ACCOUNT_KEY,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
     CONF_ENDDAY,
     CONF_ENDMONTH,
+    CONF_REDIRECT_URI,
     CONF_SITE_ID,
     CONF_STARTDATE_PRODUCTION,
     CONF_STARTDAY,
     CONF_STARTMONTH,
-    DEFAULT_ACCOUNT_KEY,
+    CONF_TOKEN,
+    CONF_UPDATE_INTERVAL,
     DEFAULT_ENDDAY,
     DEFAULT_ENDMONTH,
     DEFAULT_SITE_ID,
     DEFAULT_STARTDATE_PRODUCTION,
     DEFAULT_STARTDAY,
     DEFAULT_STARTMONTH,
+    DEFAULT_UPDATE_INTERVAL,
     DOMAIN,
     MONTHS,
 )
@@ -65,7 +86,9 @@ def _entry_settings(entry: config_entries.ConfigEntry) -> dict[str, Any]:
     """Return all settings for a config entry."""
     return {
         CONF_SITE_ID: _entry_value(entry, CONF_SITE_ID, DEFAULT_SITE_ID),
-        CONF_ACCOUNT_KEY: _entry_value(entry, CONF_ACCOUNT_KEY, DEFAULT_ACCOUNT_KEY),
+        CONF_UPDATE_INTERVAL: _entry_value(
+            entry, CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
+        ),
         CONF_STARTDAY: _entry_value(entry, CONF_STARTDAY, DEFAULT_STARTDAY),
         CONF_STARTMONTH: _entry_value(entry, CONF_STARTMONTH, DEFAULT_STARTMONTH),
         CONF_ENDDAY: _entry_value(entry, CONF_ENDDAY, DEFAULT_ENDDAY),
@@ -82,7 +105,7 @@ def _site_id_exists(
     """Return whether the site ID is already configured."""
     try:
         normalized_site_id = int(site_id)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
     for entry in hass.config_entries.async_entries(DOMAIN):
@@ -91,7 +114,7 @@ def _site_id_exists(
         configured_site_id = _entry_value(entry, CONF_SITE_ID)
         try:
             configured_site_id = int(configured_site_id)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             continue
         if configured_site_id == normalized_site_id:
             return True
@@ -102,9 +125,6 @@ def _validate_user_input(user_input: dict[str, Any]) -> dict[str, str]:
     """Validate config or options flow input."""
     errors: dict[str, str] = {}
     today = dt_util.now().date()
-
-    if not str(user_input[CONF_ACCOUNT_KEY]).strip():
-        errors[CONF_ACCOUNT_KEY] = "invalid_account_key"
 
     try:
         _day_month_to_date(
@@ -161,16 +181,13 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
         if CONF_SITE_ID in defaults
         else vol.Required(CONF_SITE_ID)
     )
-    account_key = (
-        vol.Required(CONF_ACCOUNT_KEY, default=defaults[CONF_ACCOUNT_KEY])
-        if CONF_ACCOUNT_KEY in defaults
-        else vol.Required(CONF_ACCOUNT_KEY)
-    )
-
     return vol.Schema(
         {
             site_id: cv.positive_int,
-            account_key: cv.string,
+            vol.Required(
+                CONF_UPDATE_INTERVAL,
+                default=defaults.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL),
+            ): vol.All(vol.Coerce(int), vol.Range(min=60, max=1440)),
             vol.Required(
                 CONF_STARTDAY,
                 default=defaults.get(CONF_STARTDAY, DEFAULT_STARTDAY),
@@ -200,7 +217,15 @@ def _schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
 class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SolarEdge Forecast."""
 
-    VERSION = 1
+    VERSION = 2
+
+    def __init__(self) -> None:
+        """Keep authorization state in the active flow, never in options."""
+        self.settings: dict[str, Any] = {}
+        self.credentials: dict[str, str] = {}
+        self.state = secrets.token_urlsafe(32)
+        self.reauth_entry = None
+        self.authorized_token: OAuthToken | None = None
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Handle the initial setup step."""
@@ -214,14 +239,170 @@ class SolaredgeForecastConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not errors:
                 await self.async_set_unique_id(str(user_input[CONF_SITE_ID]))
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title=f"SolarEdge Forecast {user_input[CONF_SITE_ID]}",
-                    data=user_input,
-                )
+                self.settings = user_input
+                return await self.async_step_auth()
 
         return self.async_show_form(
             step_id="user",
             data_schema=_schema(user_input),
+            errors=errors,
+        )
+
+    async def async_step_reauth(self, entry_data):
+        """Upgrade an existing V1 entry or renew an expired V2 grant."""
+        self.reauth_entry = self._get_reauth_entry()
+        self.settings = _entry_settings(self.reauth_entry)
+        return await self.async_step_auth()
+
+    async def async_step_reconfigure(self, user_input=None):
+        """Allow replacement of app credentials without replacing sensors."""
+        self.reauth_entry = self._get_reconfigure_entry()
+        self.settings = _entry_settings(self.reauth_entry)
+        return await self.async_step_auth(user_input)
+
+    async def async_step_auth(self, user_input=None):
+        """Collect locally registered Site Access application credentials."""
+        errors = {}
+        if user_input is not None:
+            redirect = urlsplit(user_input[CONF_REDIRECT_URI])
+            if (
+                redirect.scheme not in ("https", "http")
+                or not redirect.netloc
+                or redirect.query
+                or redirect.fragment
+                or redirect.username
+                or redirect.password
+                or (
+                    redirect.scheme == "http"
+                    and redirect.hostname not in ("localhost", "127.0.0.1", "::1")
+                )
+            ):
+                errors["base"] = "invalid_redirect"
+            elif not all(value.strip() for value in user_input.values()):
+                errors["base"] = "invalid_auth"
+            else:
+                self.credentials = {
+                    key: value.strip() for key, value in user_input.items()
+                }
+                self.state = secrets.token_urlsafe(32)
+                self.authorized_token = None
+                return await self.async_step_authorize()
+        defaults = self.reauth_entry.data if self.reauth_entry else {}
+        return self.async_show_form(
+            step_id="auth",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_CLIENT_ID, default=defaults.get(CONF_CLIENT_ID, "")
+                    ): cv.string,
+                    vol.Required(CONF_CLIENT_SECRET): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                    vol.Required(
+                        CONF_REDIRECT_URI, default=defaults.get(CONF_REDIRECT_URI, "")
+                    ): cv.string,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_authorize(self, user_input=None):
+        """Exchange the manually returned SolarEdge callback for a rotating grant."""
+        errors = {}
+        if user_input is not None:
+            try:
+                callback_url = user_input["callback_url"]
+                actual = urlsplit(callback_url)
+                expected = urlsplit(self.credentials[CONF_REDIRECT_URI])
+                if (actual.scheme, actual.netloc, actual.path) != (
+                    expected.scheme,
+                    expected.netloc,
+                    expected.path,
+                ):
+                    raise SolarEdgeValidationError("Incorrect redirect URI")
+                callback = parse_callback(callback_url, expected_state=self.state)
+                if callback.site_id != int(self.settings[CONF_SITE_ID]):
+                    raise SolarEdgeValidationError("Incorrect authorized site")
+                if (
+                    callback.external_id is not None
+                    and callback.external_id != self.state
+                ):
+                    raise SolarEdgeValidationError("Incorrect authorization identifier")
+                if self.authorized_token is None:
+                    self.authorized_token = await async_exchange_code(
+                        self.credentials[CONF_CLIENT_ID],
+                        self.credentials[CONF_CLIENT_SECRET],
+                        callback.code,
+                        redirect_uri=self.credentials[CONF_REDIRECT_URI],
+                        site_id=callback.site_id,
+                    )
+                token = self.authorized_token
+                if not token.refresh_token:
+                    self.authorized_token = None
+                    raise SolarEdgeValidationError("Missing rotating refresh token")
+            except SolarEdgeValidationError, SolarEdgeOAuthError:
+                errors["base"] = "invalid_auth"
+            except SolarEdgeError, httpx.TransportError:
+                errors["base"] = "cannot_connect"
+            else:
+                data = {**self.settings, **self.credentials}
+                if self.reauth_entry is not None:
+                    try:
+                        coordinator = self.hass.data.get(DOMAIN, {}).get(
+                            self.reauth_entry.entry_id
+                        )
+                        async with (
+                            coordinator.authorization_lock
+                            if coordinator
+                            else nullcontext()
+                        ):
+                            if coordinator:
+                                await coordinator.async_shutdown()
+                            await DurableTokenStore(
+                                self.hass,
+                                1,
+                                f"{DOMAIN}.{self.reauth_entry.entry_id}.oauth",
+                                private=True,
+                                atomic_writes=True,
+                            ).async_save(token.to_dict())
+                    except OSError:
+                        errors["base"] = "cannot_store"
+                    else:
+                        options = {
+                            key: value
+                            for key, value in self.reauth_entry.options.items()
+                            if key != CONF_ACCOUNT_KEY
+                        }
+                        self.hass.config_entries.async_update_entry(
+                            self.reauth_entry, data=data, options=options, version=2
+                        )
+                        await self.hass.config_entries.async_reload(
+                            self.reauth_entry.entry_id
+                        )
+                        return self.async_abort(reason="reauth_successful")
+                else:
+                    return self.async_create_entry(
+                        title=f"SolarEdge Forecast {self.settings[CONF_SITE_ID]}",
+                        data={**data, CONF_TOKEN: token.to_dict()},
+                    )
+        url = authorization_url(
+            self.credentials[CONF_CLIENT_ID],
+            redirect_uri=self.credentials[CONF_REDIRECT_URI],
+            scopes=("SITE_DATA",),
+            state=self.state,
+            external_id=self.state,
+            access_duration=24,
+        )
+        return self.async_show_form(
+            step_id="authorize",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("callback_url"): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    )
+                }
+            ),
+            description_placeholders={"authorization_url": url},
             errors=errors,
         )
 
@@ -250,6 +431,10 @@ class SolaredgeForecastOptionsFlowHandler(config_entries.OptionsFlow):
 
         if user_input is not None:
             errors = _validate_user_input(user_input)
+            if int(user_input[CONF_SITE_ID]) != int(
+                _entry_value(self.config_entry, CONF_SITE_ID)
+            ):
+                errors[CONF_SITE_ID] = "site_change"
             if not errors and _site_id_exists(
                 self.hass,
                 user_input[CONF_SITE_ID],

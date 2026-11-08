@@ -1,0 +1,5 @@
+homeassistant==2026.11.0
+solaredge==3.3.0
+pytest>=9.0
+pytest-asyncio>=1.0
+ruff>=0.14

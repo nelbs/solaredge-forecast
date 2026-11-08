@@ -1,0 +1,1 @@
+"""SolarEdge Forecast tests."""

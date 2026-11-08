@@ -5,12 +5,28 @@
         "title": "Defina a integração Solaredge Forecast",
         "data": {
           "site id": "O ID da instalação de energia solar",
-          "account key": "A chave para ligar à API SolarEdge",
+          "update_interval": "Intervalo de atualização em minutos (60-1440)",
           "startday": "Dia de início do período de previsão",
           "startmonth": "Mês de início do período de previsão",
           "endday": "Dia de fim do período de previsão",
           "endmonth": "Mês de fim do período de previsão",
           "startdate production": "OPCIONAL: Data de início da produção de energia solar %d%m%Y"
+        }
+      },
+      "auth": {
+        "title": "SolarEdge V2 Site Access",
+        "description": "Registe uma aplicação Site Access em developer.solaredge.com com o âmbito SITE_DATA. Introduza as credenciais apenas aqui, nunca numa conversa. O URI de redirecionamento deve corresponder exatamente ao registo.",
+        "data": {
+          "client_id": "ID de cliente da aplicação",
+          "client_secret": "Segredo de cliente da aplicação",
+          "redirect_uri": "URI de redirecionamento registado"
+        }
+      },
+      "authorize": {
+        "title": "Autorize a sua instalação SolarEdge",
+        "description": "[Abra o consentimento SolarEdge]({authorization_url}) noutro separador. Selecione a instalação configurada e autorize. Copie o URL final completo da barra de endereço para este formulário, mesmo se a página não carregar. Este é um callback manual; não partilhe o URL. Em caso de erro, abra novamente a ligação de consentimento.",
+        "data": {
+          "callback_url": "URL completo do callback"
         }
       }
     },
@@ -19,15 +35,18 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
-      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
+      "invalid_auth": "A autorização falhou. Verifique as credenciais e o ID da instalação e autorize novamente. Um state ou URI de redirecionamento diferente é rejeitado.",
+      "invalid_redirect": "Use o URI HTTPS registado, ou HTTP em localhost, sem parâmetros de consulta ou fragmento.",
+      "cannot_connect": "Não foi possível ligar ao SolarEdge. Tente novamente.",
+      "cannot_store": "Não foi possível guardar a autorização. Resolva o erro de armazenamento do Home Assistant e envie novamente; o código não será utilizado duas vezes.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     },
     "abort": {
+      "reauth_successful": "Autorização SolarEdge V2 atualizada. Os sensores e as definições existentes foram mantidos.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
-      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     }
   },
@@ -37,7 +56,7 @@
         "title": "Defina a integração Solaredge Forecast",
         "data": {
           "site id": "O ID da instalação de energia solar",
-          "account key": "A chave para ligar à API SolarEdge",
+          "update_interval": "Intervalo de atualização em minutos (60-1440)",
           "startday": "Dia de início do período de previsão",
           "startmonth": "Mês de início do período de previsão",
           "endday": "Dia de fim do período de previsão",
@@ -51,7 +70,7 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
-      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
+      "site_change": "Não é possível alterar a instalação autorizada. Adicione outra integração para outra instalação.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     },
     "abort": {
@@ -59,7 +78,6 @@
       "invalid_startday": "Data de início inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_endday": "Data de fim inválida. Por favor, certifique-se de que a combinação de dia e mês é válida.",
       "invalid_period": "Período de previsão inválido. Por favor, verifique se o dia atual está dentro do período de previsão especificado.",
-      "invalid_account_key": "A chave da API SolarEdge é obrigatória.",
       "invalid_startdate_production": "Data inválida. Por favor, certifique-se de que a data é válida e que é, pelo menos, de há 1 ano atrás."
     }
   }

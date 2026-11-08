@@ -5,12 +5,28 @@
         "title": "Define your Solaredge Forecast integration",
         "data": {
           "site id": "The ID of the solarenergy installation",
-          "account key": "The key to connect to the SolarEdge API",
+          "update_interval": "Update interval in minutes (60-1440)",
           "startday": "Startday of the forecast period",
           "startmonth": "Startmonth of the forecast period",
           "endday": "Endday of the forecast period",
           "endmonth": "Endmonth of the forecast period",
           "startdate production": "OPTIONAL: Date of start solar energy production %d%m%Y"
+        }
+      },
+      "auth": {
+        "title": "SolarEdge V2 Site Access",
+        "description": "Register a Site Access application on developer.solaredge.com with SITE_DATA scope. Enter credentials only here, never in a chat. The redirect URI must exactly match your app registration.",
+        "data": {
+          "client_id": "Application client ID",
+          "client_secret": "Application client secret",
+          "redirect_uri": "Registered redirect URI"
+        }
+      },
+      "authorize": {
+        "title": "Authorize your SolarEdge site",
+        "description": "[Open SolarEdge consent]({authorization_url}) in another tab. Select the configured site and approve. Copy the complete final URL from the address bar into this form, even if the redirect page cannot load. This is a manual callback flow; do not share the URL. If authorization fails, open the consent link again.",
+        "data": {
+          "callback_url": "Complete callback URL"
         }
       }
     },
@@ -19,15 +35,18 @@
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
       "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
-      "invalid_account_key": "The SolarEdge API key is required.",
+      "invalid_auth": "Authorization failed. Check the app credentials and site ID, then authorize again. A callback with a mismatching state or redirect URI is rejected.",
+      "invalid_redirect": "Use the exact registered HTTPS redirect URI, or HTTP on localhost, without query parameters or a fragment.",
+      "cannot_connect": "Cannot connect to SolarEdge. Try again.",
+      "cannot_store": "Could not save the new grant. Resolve the Home Assistant storage error and submit again; the code will not be exchanged twice.",
       "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     },
     "abort": {
+      "reauth_successful": "SolarEdge V2 authorization updated. Existing sensors and settings are retained.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",
       "invalid_period": "Invalid forecast period. Please verify that the current day falls within the specified forecast period.",
-      "invalid_account_key": "The SolarEdge API key is required.",
       "invalid_startdate_production": "Invalid date, Please ensure that the date is valid and that it is at least 1 year in the past"
     }
   },
@@ -37,7 +56,7 @@
         "title": "Define your Solaredge Forecast integration",
         "data": {
           "site id": "The ID of the solarenergy installation",
-          "account key": "The key to connect to the SolarEdge API",
+          "update_interval": "Update interval in minutes (60-1440)",
           "startday": "Startday of the forecast period",
           "startmonth": "Startmonth of the forecast period",
           "endday": "Endday of the forecast period",
@@ -47,6 +66,7 @@
       }
     },
     "error": {
+      "site_change": "The authorized site cannot be changed. Add a separate integration for another site.",
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
       "invalid_startday": "Invalid start date, Please ensure that the day and month combination for the start date is valid)",
       "invalid_endday": "Invalid end date, Please ensure that the day and month combination for the end date is valid)",

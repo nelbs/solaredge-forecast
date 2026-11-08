@@ -6,17 +6,9 @@ from calendar import month_name, monthrange
 from datetime import date, datetime, timedelta
 from typing import Any
 
-import solaredge
-
-from ..util import redact_sensitive_values
-
 DATE_FORMAT = "%Y%m%d"
 PRODUCTION_DATE_FORMAT = "%d%m%Y"
 WH_PER_KWH = 1000
-
-
-class SolarEdgeApiError(Exception):
-    """Raised when SolarEdge returns an error with secrets redacted."""
 
 
 class SolaredgeForecast:
@@ -28,54 +20,42 @@ class SolaredgeForecast:
         enddate: str,
         startdate_production: str,
         site_id: int,
-        account_key: str,
+        historical_energy: dict[str, Any],
+        produced_kwh: float,
+        today_kwh: float,
+        today: date,
     ) -> None:
         """Initialize forecast data."""
         self.startdate = datetime.strptime(startdate, DATE_FORMAT).date()
         self.enddate = datetime.strptime(enddate, DATE_FORMAT).date()
         self.site_id = site_id
-        self.account_key = account_key
         self.startdate_production = _production_start_date(startdate_production)
-
-        data = self.get_solar_forecast()
+        data = self.get_solar_forecast(
+            historical_energy, produced_kwh, today_kwh, today
+        )
 
         self.solaredge_estimated = data["Solar energy estimated"]
         self.solaredge_produced = data["Solar energy produced"]
         self.solaredge_forecast = data["Solar energy forecast"]
         self.solaredge_progress = data["Solar energy progress"]
 
-    def get_solar_forecast(self) -> dict[str, int]:
+    def get_solar_forecast(
+        self,
+        historical_energy: dict[str, Any],
+        produced_kwh: float,
+        today_kwh: float,
+        today: date,
+    ) -> dict[str, int]:
         """Calculate solar energy forecast."""
-        now = datetime.now()
-        yesterday = now.date() - timedelta(days=1)
-        today = now.date()
-        tomorrow = now.date() + timedelta(days=1)
+        yesterday = today - timedelta(days=1)
+        tomorrow = today + timedelta(days=1)
         last_month = today.replace(day=1) - timedelta(days=1)
-
-        client = solaredge.Solaredge(self.account_key)
-
-        if self.startdate_production is None:
-            data_period = _call_solaredge_api(
-                client.get_data_period, site_id=self.site_id
-            )
-            start_production = data_period["dataPeriod"]["startDate"]
-            self.startdate_production = _first_day_next_month(
-                _parse_api_date(start_production)
-            )
-
-        if self.startdate_production > last_month:
+        if self.startdate_production is None or self.startdate_production > last_month:
             raise ValueError(
                 "At least one complete month of production history is required"
             )
 
-        energy_month_average = _call_solaredge_api(
-            client.get_energy,
-            site_id=self.site_id,
-            start_date=self.startdate_production,
-            end_date=last_month,
-            time_unit="MONTH",
-        )
-        averages = _monthly_daily_averages(energy_month_average)
+        averages = _monthly_daily_averages(historical_energy)
         interpolation_points = _interpolation_points(
             averages,
             _add_months(self.startdate, -1),
@@ -90,20 +70,8 @@ class SolaredgeForecast:
         )
         energy_estimated_today = _sum_daily_energy(today, today, interpolation_points)
 
-        energy_production_until_now = _time_frame_energy_kwh(
-            client,
-            site_id=self.site_id,
-            start_date=self.startdate,
-            end_date=tomorrow,
-            time_unit="YEAR",
-        )
-        energy_produced_today = _time_frame_energy_kwh(
-            client,
-            site_id=self.site_id,
-            start_date=today,
-            end_date=tomorrow,
-            time_unit="DAY",
-        )
+        energy_production_until_now = produced_kwh
+        energy_produced_today = today_kwh
 
         energy_estimated_period = energy_estimated_from_tomorrow + max(
             0, energy_estimated_today - energy_produced_today
@@ -254,31 +222,3 @@ def _sum_daily_energy(
         _interpolated_daily_energy(day, points)
         for day in _date_range(start_date, end_date)
     )
-
-
-def _time_frame_energy_kwh(
-    client,
-    site_id: int,
-    start_date: date,
-    end_date: date,
-    time_unit: str,
-) -> float:
-    """Return SolarEdge time frame energy in kWh."""
-    payload = _call_solaredge_api(
-        client.get_time_frame_energy,
-        site_id=site_id,
-        start_date=start_date,
-        end_date=end_date,
-        time_unit=time_unit,
-    )
-    energy = payload.get("timeFrameEnergy", {}).get("energy") or 0
-    return energy / WH_PER_KWH
-
-
-def _call_solaredge_api(method, **kwargs):
-    """Call SolarEdge and redact secrets from any raised exception."""
-    try:
-        return method(**kwargs)
-    except Exception as err:
-        message = redact_sensitive_values(str(err))
-        raise SolarEdgeApiError(message) from None
