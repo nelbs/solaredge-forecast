@@ -35,5 +35,5 @@ def test_metadata_pins_v2_and_minimum_supported_home_assistant():
     manifest = json.loads((INTEGRATION / "manifest.json").read_text())
     hacs = json.loads((ROOT / "hacs.json").read_text())
     assert manifest["requirements"] == ["solaredge==3.3.0"]
-    assert manifest["version"] == "2.0.0-beta.1"
+    assert manifest["version"] == "2.0.0"
     assert hacs["homeassistant"] == "2026.11.0"
