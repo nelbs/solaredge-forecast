@@ -1,7 +1,7 @@
 """Golden results for the preserved monthly historical forecast calculation."""
 
 from calendar import monthrange
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -9,7 +9,47 @@ from custom_components.solaredge_forecast import _active_forecast_period
 from custom_components.solaredge_forecast.solaredgeforecast import (
     SolaredgeForecast,
     _monthly_daily_averages,
+    _parse_api_date,
 )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2022-12-31",
+        "2022-12-31T00:00:00Z",
+        "2022-12-31T23:30:00-02:00",
+        "2022-12-31T00:30:00+02:00",
+        "2022-12-31T23:30:00.123456Z",
+        "2022-12-31 00:00:00",
+        "2022-12-31 23:30:00-02:00",
+        " \t2022-12-31T00:00:00Z\n",
+        " 2022-12-31 ",
+        date(2022, 12, 31),
+        datetime(2022, 12, 31, 23, 30),
+        datetime(2022, 12, 31, 23, 30, tzinfo=timezone(timedelta(hours=-2))),
+    ],
+)
+def test_api_dates_preserve_the_supplied_calendar_date(value):
+    assert _parse_api_date(value) == date(2022, 12, 31)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "", " \t", "invalid", "2022-02-30", "2022-12-31T25:00:00Z"],
+)
+def test_invalid_api_dates_are_explicit(value):
+    with pytest.raises(ValueError):
+        _parse_api_date(value)
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    ["2024-02-01", "2024-02-01 00:00:00", "2024-02-01T00:30:00+02:00"],
+)
+def test_monthly_history_accepts_api_date_formats(timestamp):
+    history = {"energy": {"values": [{"date": timestamp, "value": 290_000}]}}
+    assert _monthly_daily_averages(history) == {2: 10}
 
 
 def constant_history(daily_kwh=10):

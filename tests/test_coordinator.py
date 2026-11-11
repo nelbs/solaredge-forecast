@@ -1,7 +1,7 @@
 """Credit-saving cache lifecycle, site timezone and explicit failure behavior."""
 
 import time
-from datetime import datetime
+from datetime import date, datetime
 from unittest.mock import AsyncMock, patch
 from zoneinfo import ZoneInfo
 
@@ -11,7 +11,9 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from solaredge import SolarEdgeAuthError, SolarEdgeRateLimitError
 
 from custom_components.solaredge_forecast import SolaredgeForecastData
+from custom_components.solaredge_forecast.const import CONF_STARTDATE_PRODUCTION
 
+from .conftest import make_entry
 from .test_forecast import constant_history
 
 
@@ -29,6 +31,33 @@ def client():
         "values": [{"timestamp": "2026-01-01T00:00:00Z", "value": 1900}],
     }
     return api
+
+
+async def test_first_refresh_uses_iso_installation_date_without_production_start(
+    hass, entry, client
+):
+    entry = make_entry({**entry.data, CONF_STARTDATE_PRODUCTION: ""})
+    client.get_site_details.return_value["installationDate"] = "2022-12-14T00:00:00Z"
+    now = datetime(2026, 11, 8, 20, tzinfo=ZoneInfo("Europe/Amsterdam"))
+    coordinator = SolaredgeForecastData(hass, entry)
+    await coordinator.async_initialize()
+    with (
+        patch(
+            "custom_components.solaredge_forecast.AsyncMonitoringClient",
+            return_value=client,
+        ),
+        patch(
+            "custom_components.solaredge_forecast.monthly_history",
+            AsyncMock(return_value=constant_history()),
+        ) as history,
+        patch("custom_components.solaredge_forecast.dt_util.now", return_value=now),
+    ):
+        result = await coordinator._async_update_data()
+    history.assert_awaited_once_with(
+        client, 123, date(2023, 1, 1), date(2026, 11, 1), now.tzinfo
+    )
+    assert result.startdate_production == date(2023, 1, 1)
+    assert result.solaredge_produced == 1900
 
 
 async def test_cache_persists_across_restart_and_refreshes_on_rollover(

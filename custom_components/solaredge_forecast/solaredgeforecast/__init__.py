@@ -114,7 +114,7 @@ def _parse_api_date(value: Any) -> date:
         return value.date()
     if isinstance(value, date):
         return value
-    return datetime.strptime(str(value).split()[0], "%Y-%m-%d").date()
+    return datetime.fromisoformat(str(value).strip()).date()
 
 
 def _first_day_next_month(value: date) -> date:

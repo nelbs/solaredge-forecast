@@ -7,6 +7,12 @@ their tags and the changes between those tags. Dates are GitHub publication
 dates in UTC, not commit dates. Early release notes were sparse; the summaries
 below describe only changes supported by the release title, notes or code.
 
+## [2.0.1-beta.1](https://github.com/nelbs/solaredge-forecast/releases/tag/2.0.1-beta.1) - 2026-11-11
+
+- Fix V2 setup failing when `installationDate` contains an ISO timestamp such as
+  `2022-12-14T00:00:00Z`. Accept ISO dates and timestamps in the shared
+  installation/history date parser while preserving the supplied calendar date.
+
 ## [2.0.0](https://github.com/nelbs/solaredge-forecast/releases/tag/2.0.0) - 2026-11-09
 
 **Stable V2 release. Breaking changes from V1:**

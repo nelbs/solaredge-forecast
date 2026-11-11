@@ -64,6 +64,28 @@ def test_site_metadata_and_dst():
     assert midnight(date(2026, 3, 30), zone).utcoffset().total_seconds() == 7200
 
 
+@pytest.mark.parametrize(
+    "installation",
+    [
+        "2022-12-14",
+        "2022-12-14T00:00:00Z",
+        "2022-12-31T23:30:00-02:00",
+        "2022-12-01T00:30:00+02:00",
+        "2022-12-14 00:00:00",
+        date(2022, 12, 14),
+        datetime(2022, 12, 14, tzinfo=timezone.utc),
+    ],
+)
+def test_first_history_month_accepts_api_dates(installation):
+    assert first_history_month({"installationDate": installation}) == date(2023, 1, 1)
+
+
+@pytest.mark.parametrize("installation", [" ", "invalid", "2022-02-30"])
+def test_invalid_installation_date_remains_a_response_error(installation):
+    with pytest.raises(SolarEdgeResponseError, match="Invalid V2 installationDate"):
+        first_history_month({"installationDate": installation})
+
+
 async def test_v2_windows_units_and_boundary_deduplication():
     calls = []
 
